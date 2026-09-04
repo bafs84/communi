@@ -1,0 +1,51 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+
+const metadata = {
+  title: `Wissen | ${siteConfig.name}`,
+  description:
+    "Wissensbasis zu ZEV und LEG: Grundlagen, Rollen, Prozesse, Messung/Abrechnung – plus Best Practices aus dem Netzwerk.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Wissen – erklärt mit Fokus auf <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Umsetzung</span>`}
+    tagline="Wissensbasis"
+    description="Diese Unterseiten sind bewusst ausführlicher: Begriffe, Entscheidungslogik, typische Fallstricke – und Best Practices, die im Netzwerk erprobt und iterativ verbessert werden."
+    actions={[
+      { text: "Zielgruppen", href: "/zielgruppen/", variant: "primary", icon: "lucide:route" },
+      { text: "Methoden & Tools", href: "/tools/", variant: "secondary", icon: "lucide:wrench" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Grundlagen</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li><a class="underline underline-offset-4" href="/wissen/zev-grundlagen/">ZEV Grundlagen</a></li>
+          <li><a class="underline underline-offset-4" href="/wissen/leg-grundlagen/">LEG Grundlagen</a></li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Umsetzung</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li><a class="underline underline-offset-4" href="/wissen/rollen-und-prozesse/">Rollen & Prozesse</a></li>
+          <li><a class="underline underline-offset-4" href="/wissen/messung-und-abrechnung/">Messung & Abrechnung</a></li>
+          <li><a class="underline underline-offset-4" href="/wissen/abrechnung-selbstbetrieb/">Abrechnung im Eigenbetrieb</a></li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Erweiterung</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li><a class="underline underline-offset-4" href="/wissen/batterien-und-emob/">Batterien & E-Mobilität</a></li>
+          <li><a class="underline underline-offset-4" href="/wissen/areale-und-mehrzaehler/">Areal & Mehrzähler (Unternehmen)</a></li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+</BaseLayout>

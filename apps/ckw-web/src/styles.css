@@ -1,0 +1,1145 @@
+:root {
+  color: #17201d;
+  background: #f5f7f4;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  align-items: center;
+  background: #1f6f64;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+main {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+aside {
+  background: #15211f;
+  color: #f5f7f4;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.brand div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.brand span,
+.projectList small,
+.eyebrow,
+.metric small {
+  color: #7b8a84;
+  font-size: 0.82rem;
+}
+
+.workspaceNav {
+  display: grid;
+  gap: 8px;
+}
+
+.workspaceNav button {
+  background: transparent;
+  border: 1px solid #394844;
+  color: #c9d2cd;
+  height: auto;
+  justify-content: flex-start;
+  line-height: 1.3;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.workspaceNav button:hover,
+.workspaceNav button.active {
+  background: #2b4c46;
+  border-color: #4d756c;
+  color: #fff;
+}
+
+.workspaceHint {
+  background: #22322f;
+  border: 1px solid #38504b;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.workspaceHint span {
+  color: #aebbb5;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.newProject {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  color: #c9d2cd;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.84rem;
+  gap: 6px;
+}
+
+input,
+select {
+  background: #24302d;
+  border: 1px solid #394844;
+  border-radius: 6px;
+  color: #fff;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.sectionTitle {
+  align-items: center;
+  color: #aebbb5;
+  display: flex;
+  font-size: 0.84rem;
+  gap: 8px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.projectList {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.projectListItem {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.projectSelectButton {
+  align-items: flex-start;
+  background: transparent;
+  border-radius: 5px 0 0 5px;
+  flex: 1;
+  flex-direction: column;
+  height: auto;
+  padding: 10px;
+  text-align: left;
+}
+
+.projectListItem.active,
+.projectListItem:hover {
+  background: #22322f;
+  border-color: #38504b;
+}
+
+.projectDeleteButton {
+  background: transparent;
+  border-left: 1px solid transparent;
+  border-radius: 0 5px 5px 0;
+  color: #aebbb5;
+  min-height: auto;
+  padding: 0 9px;
+}
+
+.projectDeleteButton:hover {
+  background: #4a2929;
+  border-left-color: #68403f;
+  color: #ffd7d7;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 28px;
+}
+
+header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.8rem;
+  font-weight: 720;
+}
+
+h2 {
+  font-size: 1.05rem;
+}
+
+h3 {
+  font-size: 0.98rem;
+}
+
+.alert {
+  background: #fff4dc;
+  border-left: 4px solid #d79c24;
+  border-radius: 6px;
+  color: #573e09;
+  padding: 10px 12px;
+}
+
+.alert.error {
+  background: #ffe8e8;
+  border-color: #a53b3b;
+  color: #641d1d;
+}
+
+.alert.success {
+  background: #e8f5ed;
+  border-color: #3c8a60;
+  color: #205737;
+}
+
+.metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.metric,
+.panel,
+.uploadBlock {
+  background: #fff;
+  border: 1px solid #dde4df;
+  border-radius: 8px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 94px;
+  padding: 14px;
+}
+
+.metric span {
+  color: #64746e;
+  font-size: 0.82rem;
+}
+
+.metric strong {
+  font-size: 1.35rem;
+}
+
+.workflow {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.uploadBlock {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 16px;
+}
+
+.uploadBlock p {
+  color: #65756f;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.fileInput {
+  align-items: center;
+  background: #f2f5f2;
+  border: 1px solid #d8e1db;
+  border-radius: 6px;
+  color: #23302d;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.fileInput input {
+  display: none;
+}
+
+.chartRow,
+.tables {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel {
+  min-width: 0;
+  padding: 16px;
+}
+
+.panel h2 {
+  margin-bottom: 12px;
+}
+
+.billingContent {
+  margin: 0 auto;
+  max-width: 1180px;
+  width: 100%;
+}
+
+.billingIntro p {
+  color: #65756f;
+  line-height: 1.55;
+}
+
+.billingIntro code {
+  background: #eef2ef;
+  border-radius: 4px;
+  color: #28483f;
+  padding: 2px 5px;
+}
+
+.billingForm {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.billingFileRow {
+  border-bottom: 1px solid #e1e7e3;
+  padding-bottom: 18px;
+}
+
+.billingFileInput {
+  justify-content: center;
+  min-height: 58px;
+  width: 100%;
+}
+
+.billingSelectedFiles {
+  color: #53645e;
+  display: grid;
+  font-size: 0.86rem;
+  gap: 5px;
+  margin: 12px 0 0;
+  max-height: 140px;
+  overflow: auto;
+  padding-left: 24px;
+}
+
+.billingGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.billingGrid label {
+  color: #53645e;
+}
+
+.billingGrid input,
+.billingGrid select {
+  background: #fff;
+  border-color: #cad5cf;
+  color: #17201d;
+}
+
+.billingCheckbox {
+  align-items: center;
+  align-self: end;
+  flex-direction: row;
+  min-height: 40px;
+}
+
+.billingCheckbox input {
+  min-height: auto;
+}
+
+.billingActions {
+  align-items: center;
+  border-top: 1px solid #e1e7e3;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding-top: 18px;
+}
+
+.billingActions p {
+  color: #65756f;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.billingNotes {
+  flex: 1;
+}
+
+.billingNotes p + p {
+  margin-top: 10px;
+}
+
+.panelHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panelHeader p {
+  color: #65756f;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.panelHeaderActions {
+  align-items: flex-end;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pill {
+  background: #e8f2ef;
+  border: 1px solid #c9ded8;
+  border-radius: 999px;
+  color: #1f6f64;
+  flex: 0 0 auto;
+  font-size: 0.84rem;
+  padding: 6px 10px;
+}
+
+.chart {
+  height: 320px;
+  width: 100%;
+}
+
+.heatmapChart {
+  height: 380px;
+}
+
+.loadShiftingHeatmap {
+  height: 520px;
+}
+
+.loadShiftingControls {
+  align-items: end;
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.loadShiftingControls label {
+  color: #5d6d67;
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  font-size: 0.86rem;
+  gap: 5px;
+}
+
+.residualSolarControls {
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.residualSolarControls > span {
+  color: #5d6d67;
+  display: block;
+  font-size: 0.86rem;
+  margin-top: 4px;
+}
+
+.residualSolarCheckboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.residualSolarCheckboxes label {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d4dfda;
+  border-radius: 6px;
+  color: #23302d;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: row;
+  font-size: 0.86rem;
+  gap: 6px;
+  padding: 7px 9px;
+}
+
+.residualSolarCheckboxes input {
+  min-height: auto;
+}
+
+.residualSolarCheckboxes small {
+  color: #7b8a84;
+}
+
+.explainGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.explainGrid div {
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.explainGrid strong {
+  font-size: 1.2rem;
+}
+
+.explainGrid span,
+.assumptions {
+  color: #5d6d67;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.assumptions {
+  margin: 14px 0 0;
+  padding-left: 18px;
+}
+
+.sectionIntro {
+  color: #5d6d67;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 5px 0 10px;
+}
+
+.batteryAssignments {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 14px;
+}
+
+.batteryAssignment {
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+}
+
+.batteryAssignment small,
+.batteryAssignment span {
+  color: #5d6d67;
+  font-size: 0.84rem;
+}
+
+.batteryAssignmentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.batteryAssignmentOptions label {
+  align-items: center;
+  color: #23302d;
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.batteryAssignmentOptions input {
+  min-height: auto;
+}
+
+.subsectionTitle {
+  margin-top: 20px;
+}
+
+.tableHint {
+  color: #7b8a84;
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 3px;
+}
+
+.costIncrease {
+  color: #9b2c2c;
+  font-weight: 700;
+}
+
+.costReduction {
+  color: #1f6f4a;
+  font-weight: 700;
+}
+
+.tariffChangeBadge {
+  background: #fff0cf;
+  border: 1px solid #d79c24;
+  border-radius: 999px;
+  color: #6d4b07;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.vzevCostChangeChart {
+  height: 390px;
+  margin-bottom: 16px;
+}
+
+.vzevTariffPanel {
+  align-items: end;
+  background: #f1f6f4;
+  border: 1px solid #d5e3de;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(240px, 1.5fr) minmax(175px, 0.8fr) minmax(160px, 0.7fr) auto auto;
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.vzevTariffPanel p {
+  color: #5d6d67;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 5px 0 0;
+}
+
+.vzevTariffPanel label {
+  display: grid;
+  font-size: 0.82rem;
+  gap: 5px;
+}
+
+.vzevTariffPanel input,
+.vzevTariffPanel select {
+  min-width: 0;
+  width: 100%;
+}
+
+.vzevTariffPanel .tariffLimitHint {
+  color: #5d6d67;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.optimizationMetrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-bottom: 14px;
+}
+
+.flowBox {
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  height: 460px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.flowBox .react-flow__node {
+  border: 1px solid #cddbd4;
+  border-radius: 8px;
+  color: #17201d;
+  font-size: 0.84rem;
+  padding: 10px;
+  width: 210px;
+}
+
+.flowBox .flowNode-source {
+  background: #fff8e8;
+  border-color: #e5c77d;
+}
+
+.flowBox .flowNode-zev-source {
+  background: #fff3cf;
+  border-color: #d6a93f;
+}
+
+.flowBox .flowNode-zev-consumption {
+  background: #edf6ff;
+  border-color: #8eb8dc;
+}
+
+.flowBox .flowNode-zev-grid-import,
+.flowBox .flowNode-zev-grid-export {
+  background: #f7f4ef;
+  border-color: #d4c3a6;
+}
+
+.flowBox .flowNode-solar {
+  background: #f2fbf5;
+  border-color: #9dceb0;
+}
+
+.flowBox .flowNode-leg {
+  background: #eff7fb;
+  border-color: #94bed4;
+}
+
+.flowBox .flowNode-participant {
+  background: #ffffff;
+}
+
+.flowBox .flowNode-grid {
+  background: #f7f4ef;
+  border-color: #d4c3a6;
+}
+
+.flowNode {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flowNode strong {
+  font-size: 0.88rem;
+}
+
+.flowNode span {
+  color: #1f6f64;
+  font-weight: 700;
+}
+
+.flowNode small {
+  color: #65756f;
+}
+
+.emptyState {
+  background: #f7f9f7;
+  border: 1px dashed #cfdad4;
+  border-radius: 8px;
+  color: #60716a;
+  margin-bottom: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e3e8e5;
+  padding: 9px 6px;
+  text-align: left;
+}
+
+th {
+  color: #60716a;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.fileActions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.deleteButton {
+  background: #fff0f0;
+  border: 1px solid #efc4c4;
+  color: #a53b3b;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.deleteButton:hover {
+  background: #ffe4e4;
+}
+
+.secondaryButton {
+  background: #eef4f1;
+  border: 1px solid #cfded8;
+  color: #1f6f64;
+}
+
+.secondaryButton:hover {
+  background: #e3efeb;
+}
+
+.automaticPlantAction,
+.plantControlHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.automaticPlantAction {
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 6px;
+  color: #5d6d67;
+  font-size: 0.86rem;
+  margin-bottom: 14px;
+  padding: 10px;
+}
+
+.plantControls {
+  background: #f6f8f6;
+  border: 1px solid #e1e7e3;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.plantAddGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.plantAddGrid h3 {
+  margin-bottom: 7px;
+}
+
+.inlinePlantForm {
+  display: flex;
+  gap: 7px;
+}
+
+.inlinePlantForm input,
+.inlinePlantForm select {
+  background: #fff;
+  border-color: #d4dfda;
+  color: #23302d;
+  min-width: 0;
+  width: 100%;
+}
+
+.inlinePlantForm input[type="number"] {
+  flex: 0 0 78px;
+}
+
+.inlinePlantForm button {
+  flex: 0 0 auto;
+}
+
+.iconButton {
+  padding: 0 8px;
+}
+
+@media (max-width: 1100px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  aside {
+    position: static;
+  }
+
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workflow,
+  .chartRow,
+  .tables,
+  .explainGrid,
+  .plantAddGrid,
+  .billingGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .vzevTariffPanel {
+    align-items: stretch;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .content,
+  aside {
+    padding: 18px;
+  }
+
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadBlock {
+    grid-template-columns: 1fr;
+  }
+
+  .automaticPlantAction,
+  .plantControlHeader,
+  .inlinePlantForm,
+  .billingActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vzevTariffPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .inlinePlantForm input[type="number"] {
+    flex-basis: auto;
+  }
+}
+
+/* Communi portal skin. Calculation views retain their original structure. */
+:root {
+  color: #0a0a0a;
+  background: #f4f4f5;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button {
+  background: #0254d8;
+  border-radius: 12px;
+  font-weight: 650;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+main {
+  min-height: calc(100vh - 62px);
+}
+
+aside {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+.brand svg,
+.eyebrow,
+.sectionTitle {
+  color: #5b8ff5;
+}
+
+.brand strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.workspaceNav button {
+  border-color: #27272a;
+  border-radius: 12px;
+  color: #d4d4d8;
+}
+
+.workspaceNav button:hover,
+.workspaceNav button.active {
+  background: #18181b;
+  border-color: #0254d8;
+}
+
+.workspaceHint,
+.projectListItem.active,
+.projectListItem:hover {
+  background: #18181b;
+  border-color: #3f3f46;
+  border-radius: 16px;
+}
+
+aside input,
+aside select {
+  background: #18181b;
+  border-color: #3f3f46;
+  border-radius: 12px;
+}
+
+.content {
+  background: #f4f4f5;
+  padding: 32px;
+}
+
+.metric,
+.panel,
+.uploadBlock {
+  border-color: #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+}
+
+.fileInput,
+.secondaryButton {
+  background: #ffffff;
+  border-color: #d4d4d8;
+  border-radius: 12px;
+  color: #0a0a0a;
+}
+
+.pill {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #0254d8;
+}
+
+.accessBanner {
+  align-items: center;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  color: #172554;
+  display: flex;
+  font-size: 0.88rem;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 62px;
+  padding: 10px 24px;
+}
+
+.accessBanner.registered {
+  background: #f4f4f5;
+  border-color: #e5e7eb;
+  color: #27272a;
+}
+
+.accessBanner > div {
+  display: flex;
+  gap: 8px;
+}
+
+.accessBanner button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.accessBanner .bannerSecondary {
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+}
+
+.accessScreen {
+  align-items: center;
+  background: #f4f4f5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px;
+  text-align: center;
+}
+
+.savedResults summary {
+  color: #0254d8;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.savedResultList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .accessBanner,
+  .accessBanner > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .accessBanner {
+    padding: 14px 18px;
+  }
+}

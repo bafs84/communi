@@ -1,0 +1,16 @@
+**
+!apps/
+!apps/site/
+!apps/site/**
+!apps/ckw-web/
+!apps/ckw-web/**
+!infra/
+!infra/gateway/
+!infra/gateway/**
+
+**/node_modules
+**/dist
+**/.astro
+**/.env*
+**/.DS_Store
+**/.Rhistory

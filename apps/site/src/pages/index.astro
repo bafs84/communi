@@ -1,0 +1,185 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../config/site";
+import Hero from "../components/widgets/Hero.astro";
+import Values from "../components/widgets/Values.astro";
+import Card from "../components/ui/Card.astro";
+import zevImg from "../assets/images/industrie.JPEG";
+import arealImg from "../assets/images/areal.JPEG";
+import wegImg from "../assets/images/stockwerkgemeinschaft.JPEG";
+import projectImg from "../assets/images/verwaltung.JPEG";
+const metadata = {
+	title: `${siteConfig.name} – Forschungsprojekt für lokale Energiegemeinschaften`,
+	description:
+		"Schweizweites Forschungsprojekt: lokale Gemeinschaften vernetzen, Energiedaten auswerten und Sparpotenziale für die Energiewende sichtbar machen.",
+	ignoreTitleTemplate: true,
+};
+---
+
+<BaseLayout {metadata}>
+	<Hero
+		title={`Lokale Energiegemeinschaften<br class="hidden md:block" /> <span class="bg-linear-to-r from-blue-500 via-sky-500 to-indigo-500 bg-clip-text text-transparent">gemeinsam erforschen</span>`}
+		tagline="Schweizweites Forschungsprojekt · ZEV -> LEG"
+		description={`Communi.ch verbindet Menschen in der Schweiz zu lokalen Gemeinschaften und lädt sie ein, ihre Energiedaten einzubringen. So machen wir Sparpotenziale sichtbar und untersuchen, wie Spieltheorie, Ökonomie und Kooperation die Energiewende beschleunigen können.`}
+		actions={[
+			{
+				text: "Mein Bereich",
+				href: "/raum/?login=1",
+				variant: "primary",
+				icon: "lucide:log-in",
+			},
+			{
+				text: "Mitmachen",
+				href: "/mitgliedschaft/",
+				variant: "secondary",
+				icon: "lucide:users",
+			},
+			{
+				text: "Wissensbasis",
+				href: "/wissen/",
+				variant: "secondary",
+				icon: "lucide:book-open",
+			},
+			{
+				text: "Methoden & Tools",
+				href: "/tools/",
+				variant: "secondary",
+				icon: "lucide:wrench",
+			},
+		]}
+	/>
+	<section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+		<div class="max-w-3xl mx-auto text-center mb-10">
+			<h2 class="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-3">
+				Startpunkt nach Ausgangslage
+			</h2>
+			<p class="text-muted-foreground text-lg">
+				Drei häufige Zielgruppen – jeweils mit eigener Themenseite und passenden Deep Dives.
+			</p>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+			<Card href="/zielgruppen/bestehender-zev/" class="overflow-hidden p-0 hover:shadow-md">
+				<div class="overflow-hidden">
+					<img
+						src={zevImg.src}
+						alt="Luftaufnahme eines gemischt genutzten Gebiets als Bild für bestehende Energiegemeinschaften."
+						class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+						loading="lazy"
+					/>
+				</div>
+				<div class="p-8">
+				<h3 class="text-xl font-bold text-foreground mb-2">Bestehender (virtueller) ZEV</h3>
+				<p class="text-sm text-muted-foreground mb-6">
+					Batterien, E-Mobilität, Betriebsoptimierung und Roadmap Richtung LEG.
+				</p>
+				<p class="text-sm font-semibold text-primary">Zur Themenseite</p>
+				</div>
+			</Card>
+			<Card href="/zielgruppen/areale-unternehmen/" class="overflow-hidden p-0 hover:shadow-md">
+				<div class="overflow-hidden">
+					<img
+						src={arealImg.src}
+						alt="Luftaufnahme eines Firmenareals mit mehreren Gebäuden."
+						class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+						loading="lazy"
+					/>
+				</div>
+				<div class="p-8">
+				<h3 class="text-xl font-bold text-foreground mb-2">Unternehmen / Areal</h3>
+				<p class="text-sm text-muted-foreground mb-6">
+					Mehrere Gebäude und Zählpunkte: Zusammenschluss, interne Verrechnung, Sparpotenzial.
+				</p>
+				<p class="text-sm font-semibold text-primary">Zur Themenseite</p>
+				</div>
+			</Card>
+			<Card href="/zielgruppen/verwaltungen-weg/" class="overflow-hidden p-0 hover:shadow-md">
+				<div class="overflow-hidden">
+					<img
+						src={wegImg.src}
+						alt="Luftaufnahme einer Wohnanlage als Bild für Stockwerkeigentum und Verwaltung."
+						class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+						loading="lazy"
+					/>
+				</div>
+				<div class="p-8">
+				<h3 class="text-xl font-bold text-foreground mb-2">Verwaltung / STWEG</h3>
+				<p class="text-sm text-muted-foreground mb-6">
+					Energiegemeinschaften im Eigenbetrieb abrechnen – robust, verständlich, skalierbar.
+				</p>
+				<p class="text-sm font-semibold text-primary">Zur Themenseite</p>
+				</div>
+			</Card>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+		<div class="relative min-h-[320px] overflow-hidden rounded-[2rem] border border-border md:min-h-[420px]">
+			<img
+				src={projectImg.src}
+				alt="Luftaufnahme eines vernetzten Siedlungsraums als Bild für lokale Gemeinschaften."
+				class="absolute inset-0 h-full w-full object-cover"
+			/>
+			<div class="absolute inset-0 bg-linear-to-r from-black/60 via-black/25 to-black/5" />
+			<div class="relative z-10 flex min-h-[320px] items-end p-8 md:min-h-[420px] md:p-12">
+				<div class="max-w-2xl text-white">
+					<p class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/75">Lokale Gemeinschaften</p>
+					<h2 class="mb-3 text-3xl font-bold tracking-tight md:text-5xl">Aus realen Orten werden vergleichbare Lernräume</h2>
+					<p class="text-sm leading-relaxed text-white/85 md:text-base">
+						Die Gemeinschaften auf Communi.ch basieren nicht auf abstrakten Beispielen, sondern auf realen Gebäuden, Arealen und lokalen Verhaltensmustern in der Schweiz.
+					</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<Values
+		tagline="Prinzipien"
+		title="Wofür Communi.ch steht"
+		subtitle="Positive Anreize, geteiltes Lernen und nachvollziehbare Daten statt rein technischer Optimierung."
+		columns={3}
+		items={[
+			{
+				title: "Lokale Gemeinschaften",
+				description: "Menschen, Areale und bestehende Energiegemeinschaften lernen voneinander und vergleichen reale Best Practices.",
+				icon: "lucide:users",
+			},
+			{
+				title: "Spieltheorie & Ökonomie",
+				description: "Wir untersuchen, wie Anreize, Koordination und faire Regeln zu besseren Entscheidungen im Stromsystem führen.",
+				icon: "lucide:scale",
+			},
+			{
+				title: "Nachhaltigkeit",
+				description: "Die Ergebnisse sollen lokalen Solarstrom besser nutzbar machen und die Energiewende im Alltag greifbar machen.",
+				icon: "lucide:leaf",
+			},
+		]}
+	/>
+
+	<section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+		<Card class="max-w-5xl mx-auto">
+			<div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+				<div>
+					<h3 class="text-xl font-bold text-foreground mb-2">Der schnellste Einstieg</h3>
+					<p class="text-sm text-muted-foreground">
+						`Mein Bereich` führt direkt zum Login und danach zur Plattform. `Mitmachen` erklärt vorab, welche Daten, Funktionen und nächsten Schritte dich dort erwarten.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-3">
+					<a
+						href="/raum/?login=1"
+						class="inline-flex items-center justify-center rounded-xl bg-foreground px-5 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] hover:bg-foreground/90"
+					>
+						Mein Bereich öffnen
+					</a>
+					<a
+						href="/mitgliedschaft/"
+						class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-5 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/80"
+					>
+						Funktionen ansehen
+					</a>
+				</div>
+			</div>
+		</Card>
+	</section>
+</BaseLayout>

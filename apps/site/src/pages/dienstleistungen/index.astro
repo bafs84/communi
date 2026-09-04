@@ -1,0 +1,75 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const metadata = {
+  title: `Projekt | ${siteConfig.name}`,
+  description:
+    "Schweizweites Forschungsprojekt zu lokalen Energiegemeinschaften: Datenteilnahme, lokale Gemeinschaften und Sparpotenziale im Fokus.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Ein Forschungsprojekt für <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">lokale Energiegemeinschaften</span>`}
+    tagline="Projekt"
+    description="Communi.ch verbindet Teilnehmende in der Schweiz zu lokalen Gemeinschaften. Mit Verbrauchs- und Erzeugungsdaten untersuchen wir, wo gemeinsames Handeln Kosten senkt, Solarstrom besser nutzt und das Netz intelligenter macht."
+    actions={[
+      { text: "Mitmachen", href: "/mitgliedschaft/", variant: "primary", icon: "lucide:users" },
+      { text: "Gemeinschaften", href: "/zielgruppen/", variant: "secondary", icon: "lucide:route" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Forschungsfrage</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Wie entstehen lokale Sparpotenziale, wenn Haushalte und Areale ihren Solarstrom, ihre Lasten und ihre Flexibilität gemeinsam koordinieren?
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Spieltheorie und Anreizdesign</li>
+          <li>Ökonomische Bewertung lokaler Koordination</li>
+          <li>Praxisnahe Validierung mit realen Gemeinschaften</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Datenbeitrag</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Teilnehmende bringen Verbrauchs-, Erzeugungs- oder Betriebsdaten ein, damit reale Muster sichtbar werden.
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Datenupload oder strukturierter Export</li>
+          <li>Plausibilitätschecks und Baselines</li>
+          <li>Rückmeldung zu lokalen Einspar- und Optimierungspotenzialen</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Wirkung</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Erkenntnisse fliessen in Best Practices, Gemeinschaften und digitale Werkzeuge zur weiteren Verbesserung ein.
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Gemeinsames Lernen zwischen Gemeinschaften</li>
+          <li>Methoden und Tools für neue Teilnehmende</li>
+          <li>Beiträge zur Nachhaltigkeit und Energiewende</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Wie Teilnahme funktioniert</h2>
+      <p class="text-sm text-muted-foreground">
+        Ihr könnt als bestehende Energiegemeinschaft, Haushalt, Areal oder Praxispartner teilnehmen. Nach einer kurzen Einordnung betrachten wir gemeinsam, welche Daten sinnvoll sind und welche Art von Rückmeldung für eure lokale Gemeinschaft den grössten Mehrwert bietet.
+      </p>
+      <div class="mt-6">
+        <Button href="/mitgliedschaft/" variant="secondary">Mitmachen</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

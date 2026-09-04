@@ -1,0 +1,53 @@
+---
+import { siteConfig } from "../../config/site";
+---
+
+<footer class="mt-20 border-t border-border bg-card">
+    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div
+            class="flex flex-col items-center justify-between gap-8 md:flex-row"
+        >
+            <div class="flex flex-col items-center gap-2 md:items-start">
+                <span class="text-lg font-bold text-foreground"
+                    >{siteConfig.name}</span
+                >
+                <p class="text-sm text-muted-foreground">
+                    {siteConfig.description}
+                </p>
+            </div>
+            <div class="flex items-center gap-6">
+                <a
+                    href="/ueber-uns/"
+                    class="text-muted-foreground transition-colors hover:text-primary"
+                    >Über das Projekt</a
+                >
+                <a
+                    href="/dienstleistungen/"
+                    class="text-muted-foreground transition-colors hover:text-primary"
+                    >Projekt</a
+                >
+                <a
+                    href="/mitgliedschaft/"
+                    class="text-muted-foreground transition-colors hover:text-primary"
+                    >Mitmachen</a
+                >
+                <a
+                    href="/raum/"
+                    class="text-muted-foreground transition-colors hover:text-primary"
+                    >Mein Bereich</a
+                >
+                <a
+                    href={siteConfig.socialLinks.email}
+                    class="text-muted-foreground transition-colors hover:text-primary"
+                    >E-Mail</a
+                >
+            </div>
+        </div>
+        <div
+            class="mt-8 border-t border-border pt-8 text-center text-xs text-muted-foreground"
+        >
+            &copy; {new Date().getFullYear()}
+            {siteConfig.author}. Alle Rechte vorbehalten.
+        </div>
+    </div>
+</footer>

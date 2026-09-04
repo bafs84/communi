@@ -1,0 +1,80 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import zevImg from "../../assets/images/industrie.JPEG";
+import arealImg from "../../assets/images/areal.JPEG";
+import stwegImg from "../../assets/images/stockwerkgemeinschaft.JPEG";
+
+const metadata = {
+  title: `Zielgruppen – Startpunkt | ${siteConfig.name}`,
+  description:
+    "Themenseiten für typische Ausgangslagen: bestehender (virtueller) ZEV, Unternehmen/Areal, Immobilienverwaltung/STWEG.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Startpunkt nach <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Ausgangslage</span>`}
+    tagline="Themenseiten · Zielgruppen"
+    description="Unterschiedliche Projekte haben unterschiedliche Engpässe: Technik, Abrechnung, Governance, Kommunikation oder Skalierung."
+    actions={[
+      { text: "Wissen öffnen", href: "/wissen/", variant: "primary", icon: "lucide:book-open" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card href="/zielgruppen/bestehender-zev/" class="overflow-hidden p-0 hover:shadow-md">
+        <div class="overflow-hidden">
+          <img
+            src={zevImg.src}
+            alt="Luftaufnahme eines gemischt genutzten Gebiets als Bild für bestehende Energiegemeinschaften."
+            class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+            loading="lazy"
+          />
+        </div>
+        <div class="p-8">
+          <h2 class="text-xl font-bold text-foreground mb-2">Bestehender (virtueller) ZEV</h2>
+          <p class="text-sm text-muted-foreground mb-6">
+            Batterien, E-Mobilität, Betriebsoptimierung und Roadmap Richtung LEG.
+          </p>
+        </div>
+      </Card>
+      <Card href="/zielgruppen/areale-unternehmen/" class="overflow-hidden p-0 hover:shadow-md">
+        <div class="overflow-hidden">
+          <img
+            src={arealImg.src}
+            alt="Luftaufnahme eines Firmenareals mit mehreren Gebäuden."
+            class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+            loading="lazy"
+          />
+        </div>
+        <div class="p-8">
+          <h2 class="text-xl font-bold text-foreground mb-2">Unternehmen / Areal</h2>
+          <p class="text-sm text-muted-foreground mb-6">
+            Mehrere Gebäude/Zähler: Zusammenschluss, interne Verrechnung, Sparpotenzial und Prozesse.
+          </p>
+        </div>
+      </Card>
+      <Card href="/zielgruppen/verwaltungen-weg/" class="overflow-hidden p-0 hover:shadow-md">
+        <div class="overflow-hidden">
+          <img
+            src={stwegImg.src}
+            alt="Luftaufnahme einer Wohnanlage als Bild für Verwaltung und Stockwerkeigentum."
+            class="h-56 w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+            loading="lazy"
+          />
+        </div>
+        <div class="p-8">
+          <h2 class="text-xl font-bold text-foreground mb-2">Verwaltung / STWEG</h2>
+          <p class="text-sm text-muted-foreground mb-6">
+            Expertise für Abrechnung im Eigenbetrieb: Rollen, Daten, Prozesse, Sonderfälle, Kommunikation.
+          </p>
+        </div>
+      </Card>
+    </div>
+  </section>
+</BaseLayout>

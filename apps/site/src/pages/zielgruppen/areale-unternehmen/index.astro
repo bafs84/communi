@@ -1,0 +1,81 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../../config/site";
+import Hero from "../../../components/widgets/Hero.astro";
+import Card from "../../../components/ui/Card.astro";
+import Button from "../../../components/ui/Button.astro";
+import ParallaxImage from "../../../components/ui/ParallaxImage.astro";
+import heroImg from "../../../assets/images/areal.JPEG";
+
+const metadata = {
+  title: `Unternehmen/Areal: mehrere Zähler, Sparpotenzial | ${siteConfig.name}`,
+  description:
+    "Für Unternehmen mit mehreren Gebäuden/Zählern: Zusammenschluss, interne Verrechnung, Datenbasis und Betriebsprozesse für messbares Sparpotenzial.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Mehrere Gebäude, viele Zähler – <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">mehr Übersicht</span>`}
+    tagline="Zielgruppe · Unternehmen / Areal"
+    description="Für Firmenareale sind Datenbasis, interne Verrechnung und robuste Prozesse entscheidend, um Sparpotenzial wirklich zu heben."
+    actions={[
+      { text: "Deep Dive (Areal & Mehrzähler)", href: "/wissen/areale-und-mehrzaehler/", variant: "primary", icon: "lucide:factory" },
+      { text: "Rollen & Prozesse", href: "/wissen/rollen-und-prozesse/", variant: "secondary", icon: "lucide:workflow" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <ParallaxImage
+    image={heroImg}
+    alt="Luftaufnahme eines Firmenareals mit mehreren Hallen und Gebäuden."
+    eyebrow="Areal und Unternehmen"
+    title="Mehrere Gebäude bedeuten auch mehrere Hebel"
+    description="Arealstrukturen zeigen besonders gut, wie Koordination, Datentransparenz und lokale Flexibilität zu messbaren Einsparungen führen können."
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Typische Ziele</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Energie- und Leistungskosten senken</li>
+          <li>PV-Eigenverbrauch erhöhen</li>
+          <li>Laden/Lasten steuern statt „Wildwuchs“</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Typische Hürden</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Inhomogene Messlandschaft / Datenlücken</li>
+          <li>Interne Verrechnung ist nicht akzeptiert/verstanden</li>
+          <li>Zu viele Sonderfälle im Betrieb</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Erfolgsfaktoren</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Klare Regeln für Kosten-/Nutzenverteilung</li>
+          <li>Standardisierte Prozesse (Onboarding, Changes)</li>
+          <li>Mess- und Datenkonzept „first class“</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Vorgehen (kompakt)</h2>
+      <ol class="text-sm text-muted-foreground space-y-2 list-decimal pl-5">
+        <li><strong>Inventar:</strong> Zähler, Gebäude, Lasten, PV, Ladepunkte, Verträge.</li>
+        <li><strong>Daten & Baseline:</strong> Profile, Peaks, Kostentreiber.</li>
+        <li><strong>Zielbild:</strong> Welche Gemeinschaft/Verrechnung macht Sinn (und warum)?</li>
+        <li><strong>Design:</strong> Mess-/Abrechnung, Rollen, Prozesse, Kommunikation.</li>
+        <li><strong>Pilot:</strong> klein starten, dann skalieren.</li>
+      </ol>
+      <div class="mt-6">
+        <Button href="/mitgliedschaft/" variant="secondary">Mitmachen</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

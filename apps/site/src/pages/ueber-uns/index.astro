@@ -1,0 +1,46 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+
+const metadata = {
+  title: `Über das Projekt | ${siteConfig.name}`,
+  description:
+    "Communi.ch ist ein schweizweites Forschungsprojekt zu lokalen Energiegemeinschaften, Daten und gemeinschaftlicher Koordination.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Communi.ch – <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Forschung</span> mit lokalen Gemeinschaften`}
+    tagline="Über das Projekt"
+    description="Das Projekt verbindet Menschen in der Schweiz, die an Sonnenenergie, intelligente Netze und lokale Kooperation glauben. Im Mittelpunkt stehen reale Daten, faire Regeln und positive Anreize."
+    actions={[
+      { text: "Mitmachen", href: "/mitgliedschaft/", variant: "primary", icon: "lucide:users" },
+      { text: "Methoden & Tools", href: "/tools/", variant: "secondary", icon: "lucide:wrench" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Forschungsansatz</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Lokale Gemeinschaften statt abstrakte Modellfälle</li>
+          <li>Reale Energiedaten als Grundlage für Einschätzungen</li>
+          <li>Verbindung von Spieltheorie, Ökonomie und Nachhaltigkeit</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Zusammenarbeit</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Haushalte, ZEV, Areale und Forschende können teilnehmen</li>
+          <li>Best Practices werden zwischen Gemeinschaften geteilt</li>
+          <li>Digitale Werkzeuge entstehen iterativ aus realen Anwendungsfällen</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+</BaseLayout>

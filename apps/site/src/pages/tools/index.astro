@@ -1,0 +1,76 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const metadata = {
+  title: `Methoden & Tools | ${siteConfig.name}`,
+  description:
+    "Methoden und digitale Tools für lokale Energiegemeinschaften: aus realen Daten entwickelt und zwischen Gemeinschaften geteilt.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Methoden und Tools für <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">lernende Gemeinschaften</span>`}
+    tagline="Forschung · Methoden & Tools"
+    description="Wir entwickeln und teilen digitale Werkzeuge, die Planung, Betrieb und Optimierung von ZEV/LEG vereinfachen. Sie entstehen aus realen Daten, lokalen Experimenten und dem Austausch zwischen Gemeinschaften."
+    actions={[
+      { text: "Mitmachen", href: "/mitgliedschaft/", variant: "primary", icon: "lucide:users" },
+      { text: "Use-Case: bestehender ZEV", href: "/zielgruppen/bestehender-zev/", variant: "secondary", icon: "lucide:route" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was wir bauen</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Checklisten/Entscheidungslogik (ZEV/LEG)</li>
+          <li>Vorlagen & Prozess-Blueprints</li>
+          <li>Auswertungen für initiale Datenexports (z.B. PV, Last, Laden)</li>
+          <li>Tooling für Betriebsqualität (Transparenz, Sonderfälle, Changes)</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Wie es geteilt wird</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Im Projektumfeld zwischen Gemeinschaften geteilt</li>
+          <li>Best Practices aus Projekten fliessen zurück</li>
+          <li>Iterativ verbessert statt „einmal veröffentlicht“</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Warum das wichtig ist</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Hilft Gemeinschaften, ihr Sparpotenzial besser zu verstehen</li>
+          <li>Macht lokale Entscheidungen nachvollziehbarer</li>
+          <li>Verbindet Nachhaltigkeit mit konkretem Nutzen im Alltag</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Start mit Daten</h2>
+      <p class="text-sm text-muted-foreground">
+        Im Projekt testen wir, welche Daten und Auswertungen Gemeinschaften wirklich weiterbringen: von Baselines über Vergleichsmetriken bis zu Fragen der fairen Aufteilung lokaler Vorteile.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <Button href="/tools/solar-share/" variant="primary">Solar-Proxy Rechner öffnen</Button>
+        <Button href="https://ckw.communi.ch/" variant="secondary">CKW Werkzeuge ohne Login</Button>
+        <Button href="/dienstleistungen/" variant="secondary">Projekt</Button>
+        <Button href="/kontakt/" variant="secondary">Kontakt</Button>
+      </div>
+      <p class="mt-4 text-xs text-muted-foreground">
+        Im Gastzugang bleiben CKW-Dateien nur in einer flüchtigen Sitzung und werden nach 60 Minuten Inaktivität,
+        spätestens nach 24 Stunden oder sofort beim Beenden der Sitzung gelöscht. Mit Registrierung können Projekte
+        vor Ablauf übernommen und dauerhaft gespeichert werden.
+      </p>
+    </Card>
+  </section>
+</BaseLayout>

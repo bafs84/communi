@@ -1,0 +1,69 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const metadata = {
+  title: `LEG – Roadmap & Umsetzung | ${siteConfig.name}`,
+  description:
+    "LEG verständlich aufbauen: Use-Cases, Governance, Prozesse und Roadmap von ZEV zu lokalen Elektrizitätsgemeinschaften.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`LEG: lokal organisieren, <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">robust</span> betreiben`}
+    tagline="Themenseite · LEG"
+    description="Lokale Elektrizitätsgemeinschaften brauchen ein klares Zielbild, tragfähige Governance und robuste Prozesse."
+    actions={[
+      { text: "LEG Grundlagen", href: "/wissen/leg-grundlagen/", variant: "primary", icon: "lucide:book-open" },
+      { text: "Rollen & Prozesse", href: "/wissen/rollen-und-prozesse/", variant: "secondary", icon: "lucide:workflow" },
+      { text: "Start nach Zielgruppe", href: "/zielgruppen/", variant: "secondary", icon: "lucide:route" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Use-Cases</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Quartierlösungen mit PV & Speicher</li>
+          <li>Gemeinschaftliche Flexibilität</li>
+          <li>Schrittweise Erweiterung bestehender ZEV</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Entscheidungspunkte</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Koordination und Beteiligung</li>
+          <li>Mess-/Abrechnungsarchitektur</li>
+          <li>Rollenmodell (Betrieb, Service, Support)</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Roadmap</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Zielbild & Stakeholder</li>
+          <li>Pilot & Betriebskonzept</li>
+          <li>Skalierung & Standardisierung</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-foreground mb-2">Pragmatisch: ZEV stabilisieren, dann erweitern</h2>
+          <p class="text-sm text-muted-foreground">
+            Häufig ist der robuste Weg: (1) ZEV stabil betreiben, (2) Prozesse standardisieren, (3) erweitern – statt sofort alles auf einmal.
+          </p>
+        </div>
+        <Button href="/dienstleistungen/" variant="secondary">Projekt</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

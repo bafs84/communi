@@ -1,0 +1,33 @@
+.DS_Store
+**/.DS_Store
+**/.Rhistory
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+secrets/
+
+# Dependency and build output
+node_modules/
+dist/
+.astro/
+target/
+.venv/
+*.pyc
+__pycache__/
+*.tsbuildinfo
+.pytest_cache/
+
+# Runtime state and backups
+runtime/
+backups/
+*.duckdb
+
+# Preserved pre-monorepo source checkouts and local/customer data.
+/backend/
+/platform-api/
+/website/
+/website-theme/
+/sample data/
+/municipalities-data-2026.csv

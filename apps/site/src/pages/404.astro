@@ -1,0 +1,31 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/widgets/Hero.astro";
+
+const metadata = {
+    title: "404 - Seite nicht gefunden",
+    description: "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+    ignoreTitleTemplate: true,
+};
+---
+
+<BaseLayout {metadata}>
+    <Hero
+        title={`<h1 class="bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent text-[12rem] font-extrabold tracking-tighter mb-4">404</h1>`}
+        description="Die gewünschte Seite konnte nicht gefunden werden. Möglicherweise wurde sie verschoben oder entfernt."
+        actions={[
+            {
+                variant: "primary",
+                text: "Zur Startseite",
+                href: "/",
+                icon: "lucide:home",
+            },
+            {
+                variant: "secondary",
+                text: "Kontakt",
+                href: "/kontakt/",
+                icon: "lucide:phone",
+            },
+        ]}
+    />
+</BaseLayout>

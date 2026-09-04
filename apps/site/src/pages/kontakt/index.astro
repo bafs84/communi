@@ -1,0 +1,44 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const email = "kontakt@communi.ch";
+const metadata = {
+  title: `Kontakt | ${siteConfig.name}`,
+  description: "Kontakt zu Communi.ch: Fragen zu Teilnahme, Gemeinschaften, Energiedaten und Forschung.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Einfach <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">anfragen</span>`}
+    tagline="Kontakt"
+    description="Für Fragen zu Teilnahme, lokalen Gemeinschaften, Energiedaten, ZEV/LEG und Forschungszusammenarbeit."
+    actions={[
+      { text: "E-Mail schreiben", href: `mailto:${email}?subject=Anfrage%20Communi.ch`, variant: "primary", icon: "lucide:mail" },
+      { text: "Wissensbasis", href: "/wissen/", variant: "secondary", icon: "lucide:book-open" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Kontakt</h2>
+      <p class="text-sm text-muted-foreground mb-6">
+        E-Mail: <a class="underline underline-offset-4" href={`mailto:${email}`}>{email}</a>
+      </p>
+      <h3 class="text-lg font-bold text-foreground mb-2">Was hilft uns für eine schnelle Antwort?</h3>
+      <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+        <li>Ausgangslage: Haushalt, bestehender ZEV, Areal oder LEG-Idee</li>
+        <li>Ort und grobe Grösse (Gebäude, Quartier, Anzahl Parteien)</li>
+        <li>Welche Daten sind verfügbar oder leicht exportierbar?</li>
+        <li>Was wollt ihr besser verstehen: Sparpotenzial, Koordination, Solarstromnutzung, E-Mobilität?</li>
+      </ul>
+      <div class="mt-6">
+        <Button href="/zielgruppen/" variant="secondary">Start nach Zielgruppe</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

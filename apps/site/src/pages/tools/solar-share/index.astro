@@ -1,0 +1,119 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import Card from "../../../components/ui/Card.astro";
+import Button from "../../../components/ui/Button.astro";
+import { siteConfig } from "../../../config/site";
+
+const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "";
+const metadata = {
+  title: `Solar-Proxy Rechner | ${siteConfig.name}`,
+  description:
+    "CSV-Rechner für Smart-Meter-Daten: Schätzt, welcher Verbrauchsanteil zeitlich mit einer lokalen PV-Erzeugungskurve zusammenfällt.",
+};
+---
+
+<BaseLayout {metadata}>
+  <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <div class="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+      <div class="space-y-6">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Öffentlicher Rechner</p>
+          <h1 class="mt-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            Wann passt dein Verbrauch zur lokalen Solarproduktion?
+          </h1>
+          <p class="mt-5 text-base leading-7 text-muted-foreground">
+            Lade einen CSV-Export deines Smart Meters hoch. Der Rechner schätzt, welcher Anteil deines Verbrauchs zeitlich mit einer typischen Schweizer PV-Erzeugungskurve zusammenfällt.
+          </p>
+        </div>
+
+        <Card>
+          <h2 class="text-xl font-bold text-foreground">Was passiert mit der Datei?</h2>
+          <p class="mt-3 text-sm leading-6 text-muted-foreground">
+            Die Datei wird an die Communi.ch API gesendet, temporär im privaten Objektspeicher abgelegt und nach der definierten Aufbewahrungsfrist gelöscht. Im Ergebnis zeigen wir nur Kennzahlen und keine Rohdaten.
+          </p>
+          <p class="mt-3 text-sm leading-6 text-muted-foreground">
+            Der Solar-Proxy ist eine transparente Näherung, keine zertifizierte PV-Simulation. Für genauere Analysen kannst du dich im Portal registrieren.
+          </p>
+        </Card>
+      </div>
+
+      <Card>
+        <div
+          data-sunshine-calculator
+          data-api-base-url={apiBaseUrl}
+          class="space-y-6"
+        >
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight text-foreground">CSV auswerten</h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Unterstützt werden UTF-8 CSV-Dateien mit einer erkennbaren Zeitspalte und einer kWh-/Verbrauchsspalte.
+            </p>
+          </div>
+
+          <div data-calculator-setup class="hidden rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-950">
+            `PUBLIC_API_BASE_URL` ist noch nicht gesetzt. Starte die Backend-API und trage die URL in `.env` ein.
+          </div>
+
+          <form data-calculator-form class="space-y-5">
+            <label class="space-y-2">
+              <span class="block text-sm font-semibold text-foreground">Smart-Meter CSV</span>
+              <input
+                type="file"
+                name="file"
+                accept=".csv,text/csv"
+                required
+                class="block w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold"
+              />
+            </label>
+
+            <button
+              type="submit"
+              class="inline-flex w-full items-center justify-center rounded-xl bg-foreground px-6 py-3 text-sm font-bold text-background transition-all hover:scale-[1.01] hover:bg-foreground/90"
+            >
+              Solar-Proxy berechnen
+            </button>
+          </form>
+
+          <div data-calculator-error class="hidden rounded-2xl border border-red-300/70 bg-red-50 p-4 text-sm text-red-950"></div>
+
+          <div data-calculator-result class="hidden space-y-5 rounded-3xl border border-border bg-muted/40 p-6">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Ergebnis</p>
+              <p class="mt-3 text-5xl font-bold tracking-tight text-foreground" data-result-solar>–</p>
+              <p class="mt-2 text-sm text-muted-foreground">
+                geschätzter Verbrauchsanteil im PV-Erzeugungsfenster
+              </p>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div class="rounded-2xl border border-border bg-background p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Energie</p>
+                <p class="mt-2 text-lg font-bold text-foreground" data-result-kwh>–</p>
+              </div>
+              <div class="rounded-2xl border border-border bg-background p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Zeilen</p>
+                <p class="mt-2 text-lg font-bold text-foreground" data-result-rows>–</p>
+              </div>
+              <div class="rounded-2xl border border-border bg-background p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Tageslicht</p>
+                <p class="mt-2 text-lg font-bold text-foreground" data-result-daylight>–</p>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground">
+              <p data-result-columns>–</p>
+              <p class="mt-1" data-result-timespan>–</p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <Button href="/raum/?login=1" variant="primary">Im Portal vertiefen</Button>
+              <Button href="/mitgliedschaft/" variant="secondary">Mehr über Communi.ch</Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  </section>
+
+  <script src="/scripts/sunshine-calculator.js" defer></script>
+</BaseLayout>

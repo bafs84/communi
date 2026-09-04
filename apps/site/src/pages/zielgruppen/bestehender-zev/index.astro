@@ -1,0 +1,82 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../../config/site";
+import Hero from "../../../components/widgets/Hero.astro";
+import Card from "../../../components/ui/Card.astro";
+import Button from "../../../components/ui/Button.astro";
+import ParallaxImage from "../../../components/ui/ParallaxImage.astro";
+import heroImg from "../../../assets/images/industrie.JPEG";
+
+const metadata = {
+  title: `Bestehender ZEV: Batterie, E-Mobilität, ZEV → LEG | ${siteConfig.name}`,
+  description:
+    "Für bestehende (virtuelle) ZEV: Betriebsoptimierung, Batterie- und E-Mobilitätsintegration sowie Roadmap zur Erweiterung Richtung LEG.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Aus dem ZEV mehr herausholen – <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">ohne Chaos</span>`}
+    tagline="Zielgruppe · bestehender (virtueller) ZEV"
+    description="Wenn der ZEV läuft, kommen die nächsten Fragen: Batterie, E-Laden, Optimierung, und Roadmap Richtung LEG."
+    actions={[
+      { text: "Batterien & E-Mobilität", href: "/wissen/batterien-und-emob/", variant: "primary", icon: "lucide:battery-charging" },
+      { text: "Messung & Abrechnung", href: "/wissen/messung-und-abrechnung/", variant: "secondary", icon: "lucide:gauge" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <ParallaxImage
+    image={heroImg}
+    alt="Luftaufnahme eines Industrie- und Quartierumfelds für bestehende Energiegemeinschaften."
+    eyebrow="Bestehender ZEV"
+    title="Vom laufenden Betrieb zur datenbasierten Optimierung"
+    description="Die gleiche Gemeinschaft kann mit Batterie, E-Mobilität und besseren Regeln deutlich intelligenter werden, wenn reale Daten als Grundlage dienen."
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Typische Ausgangslage</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>ZEV oder virtueller ZEV ist in Betrieb</li>
+          <li>PV-Leistung vorhanden, Lastprofil verändert sich</li>
+          <li>Wachsende Komplexität (Laden, Speicher, neue Teilnehmende)</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Häufige Probleme</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Unklare Verantwortlichkeiten im Betrieb</li>
+          <li>Abrechnung wird zu komplex für Teilnehmende</li>
+          <li>Optimierungsideen ohne belastbare Datenbasis</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was „gut“ aussieht</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Stabile Abrechnung & Supportprozesse</li>
+          <li>Mess-/Datenkonzept als Grundlage für Optimierung</li>
+          <li>Schrittweiser Ausbau statt Big Bang</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Pragmatische Roadmap (Beispiel)</h2>
+      <ol class="text-sm text-muted-foreground space-y-2 list-decimal pl-5">
+        <li><strong>Betriebs-Check:</strong> Rollen, Prozesse, Abrechnung, Pain Points.</li>
+        <li><strong>Daten-Check:</strong> Messpunkte, Granularität, Datenqualität, Monitoring.</li>
+        <li><strong>Use-Case-Design:</strong> Batterie/E-Mob: Ziele, Regeln, Prioritäten, Fairness.</li>
+        <li><strong>Umsetzung:</strong> Pilot, dann Standardisierung.</li>
+        <li><strong>Option LEG:</strong> Zielbild, Kriterien, Stakeholder, schrittweise Erweiterung.</li>
+      </ol>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <Button href="/dienstleistungen/" variant="secondary">Projekt</Button>
+        <Button href="/leg/" variant="secondary">LEG Überblick</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

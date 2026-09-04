@@ -1,0 +1,15 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import WorkspaceShell from "../../components/workspace/WorkspaceShell.astro";
+
+const metadata = {
+  title: `Mein Bereich | ${siteConfig.name}`,
+  description:
+    "Geschützter Bereich für Teilnehmende: Auth0-Login, Upload von Energiedaten, Forschungsprofil und gemeinschaftsbezogene Notizen.",
+};
+---
+
+<BaseLayout {metadata}>
+  <WorkspaceShell />
+</BaseLayout>

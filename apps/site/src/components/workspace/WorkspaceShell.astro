@@ -1,0 +1,395 @@
+---
+import Card from "../ui/Card.astro";
+import { siteConfig } from "../../config/site";
+
+const auth0Domain = import.meta.env.PUBLIC_AUTH0_DOMAIN ?? "";
+const auth0ClientId = import.meta.env.PUBLIC_AUTH0_CLIENT_ID ?? "";
+const auth0Audience = import.meta.env.PUBLIC_AUTH0_AUDIENCE ?? "";
+const auth0RedirectUri = import.meta.env.PUBLIC_AUTH0_REDIRECT_URI ?? "";
+const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "";
+const graphqlApiUrl = import.meta.env.PUBLIC_GRAPHQL_API_URL ?? "";
+---
+
+<section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+  <div
+    data-communi-workspace
+    data-auth0-domain={auth0Domain}
+    data-auth0-client-id={auth0ClientId}
+    data-auth0-audience={auth0Audience}
+    data-auth0-redirect-uri={auth0RedirectUri}
+    data-api-base-url={apiBaseUrl}
+    data-graphql-api-url={graphqlApiUrl}
+    data-research-email={siteConfig.socialLinks.email.replace("mailto:", "")}
+    data-municipality-source="/data/municipalities-data-2026.csv"
+    class="space-y-8"
+  >
+    <div class="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+      <Card>
+        <div data-workspace-panel="loading" class="space-y-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Mein Bereich</p>
+          <h1 class="text-3xl font-bold tracking-tight text-foreground">Plattform wird vorbereitet</h1>
+          <p class="text-sm text-muted-foreground">
+            Auth0 und die lokalen Gemeindedaten werden geladen. Danach startet der Einstieg direkt im richtigen Zustand.
+          </p>
+        </div>
+
+        <div data-workspace-panel="setup" class="hidden space-y-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Setup fehlt</p>
+          <h1 class="text-3xl font-bold tracking-tight text-foreground">Auth0 ist noch nicht konfiguriert</h1>
+          <p class="text-sm text-muted-foreground">
+            Trage zuerst die öffentlichen Auth0-Werte in `.env` ein. Danach funktioniert die Anmeldung auch im Static Export.
+          </p>
+          <ul class="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>`PUBLIC_AUTH0_DOMAIN`</li>
+            <li>`PUBLIC_AUTH0_CLIENT_ID`</li>
+            <li>`PUBLIC_AUTH0_AUDIENCE` optional</li>
+            <li>`PUBLIC_AUTH0_REDIRECT_URI` optional</li>
+          </ul>
+        </div>
+
+        <div data-workspace-panel="guest" class="hidden space-y-6">
+          <div class="space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Direkter Einstieg</p>
+            <h1 class="text-3xl font-bold tracking-tight text-foreground">Mit Login direkt in die lokale Energiegemeinschaft</h1>
+            <p class="text-sm text-muted-foreground">
+              Nach der Anmeldung wählst du deine Gemeinde, prüfst den zuständigen Netzbetreiber, lädst Energiedaten hoch und sammelst Fragen für Forschende und andere Interessierte.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              data-auth-action="login"
+              class="inline-flex items-center justify-center rounded-xl bg-foreground px-6 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] hover:bg-foreground/90"
+            >
+              Mit Auth0 anmelden
+            </button>
+            <a
+              href="/mitgliedschaft/"
+              class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-6 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/80"
+            >
+              Funktionen erklärt
+            </a>
+          </div>
+        </div>
+
+        <div data-workspace-panel="member" class="hidden space-y-6">
+          <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Angemeldet</p>
+              <h1 class="text-3xl font-bold tracking-tight text-foreground">Onboarding für Gemeinde, Daten und Fragen</h1>
+              <p class="mt-2 text-sm text-muted-foreground">
+                Wenn die REST-API konfiguriert ist, werden Profil, CSV-Metadaten und Fragen sicher im Backend gespeichert. Ohne API bleibt der Bereich lokal im Browser.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-auth-action="logout"
+              class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted/80"
+            >
+              Abmelden
+            </button>
+          </div>
+
+          <a
+            href="/raum/ckw/"
+            class="flex flex-col gap-2 rounded-2xl border border-primary/30 bg-blue-50 p-5 transition-colors hover:border-primary dark:bg-blue-950/30"
+          >
+            <span class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">CKW Werkzeuge</span>
+            <strong class="text-lg text-foreground">LEG, vZEV-Simulation und vZEV-Abrechnung öffnen</strong>
+            <span class="text-sm text-muted-foreground">Projekte, Konfigurationen, Uploads und erzeugte Dokumente bleiben in deinem geschützten Bereich gespeichert, bis du sie löschst.</span>
+          </a>
+
+          <div class="grid gap-4 md:grid-cols-4">
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Gemeinde</p>
+              <p class="mt-3 text-lg font-bold text-foreground" data-municipality-label>Noch nicht gewählt</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-municipality-meta>Gemeinde wählen und bestätigen</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Netzbetreiber</p>
+              <p class="mt-3 text-lg font-bold text-foreground" data-operator-label>Noch offen</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-operator-meta>Wird aus der Gemeindedatei abgeleitet</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Lokales Signal</p>
+              <p class="mt-3 text-lg font-bold text-foreground" data-municipality-count>0</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-municipality-count-caption>Profile in dieser Browser-Vorschau</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Datenstand</p>
+              <p class="mt-3 text-lg font-bold text-foreground" data-upload-count>0 Dateien</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-upload-summary>Noch keine Auswertung vorhanden</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Klarer Ablauf</p>
+        <div class="mt-4 space-y-5">
+          <div>
+            <h2 class="text-lg font-bold text-foreground">1. Gemeinde wählen</h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Du suchst deine Gemeinde, und falls dort mehrere Netzbetreiber aktiv sind, wählst du den passenden Betreiber aus.
+            </p>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-foreground">2. CSV hochladen</h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Die Datei wird lokal analysiert. Angezeigt werden erkannte Energiemengen, Zeitfenster und ein grobes Optimierungsfenster.
+            </p>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-foreground">3. Fragen sammeln</h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Welche Fragen, Unsicherheiten oder Beobachtungen ergeben sich aus euren Daten? Diese Notizen bleiben strukturiert an einem Ort.
+            </p>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-foreground">4. Interesse signalisieren</h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Optional kannst du dein Interesse an einer lokalen Gemeinschaft markieren und deine bei Auth0 hinterlegte E-Mail für andere aus derselben Gemeinde freigeben.
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <div data-workspace-panel="member" class="hidden grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+      <div class="space-y-8">
+        <Card>
+          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Schritt 1 · Profil</p>
+              <h2 class="text-2xl font-bold tracking-tight text-foreground">Gemeinde und lokale Situation erfassen</h2>
+            </div>
+            <p class="text-sm text-muted-foreground">Weniger Pflichtfelder, dafür klare Einordnung nach Gemeinde und Netzbetreiber</p>
+          </div>
+
+          <form data-profile-form class="mt-6 space-y-5">
+            <div class="grid gap-5 md:grid-cols-[1.2fr_0.8fr]">
+              <label class="space-y-2">
+                <span class="block text-sm font-semibold text-foreground">Gemeinde oder Stadt</span>
+                <input
+                  name="municipalityLabel"
+                  type="text"
+                  list="municipality-options"
+                  autocomplete="off"
+                  placeholder="z. B. Sursee (LU)"
+                  class="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+                />
+              </label>
+              <label class="space-y-2">
+                <span class="block text-sm font-semibold text-foreground">Netzbetreiber / DSO</span>
+                <select
+                  name="operatorName"
+                  class="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+                >
+                  <option value="">Bitte zuerst Gemeinde wählen</option>
+                </select>
+              </label>
+            </div>
+
+            <datalist id="municipality-options"></datalist>
+
+            <div class="rounded-2xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              <p data-operator-hint>Die Auswahl basiert auf `municipalities-data-2026.csv`. Wenn in einer Gemeinde mehrere Netzbetreiber vorkommen, bitte den passenden Eintrag auswählen.</p>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-foreground">
+                <input name="hasBattery" type="checkbox" class="h-4 w-4 rounded border-border" />
+                Batterie vorhanden
+              </label>
+              <label class="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-foreground">
+                <input name="hasEvCharging" type="checkbox" class="h-4 w-4 rounded border-border" />
+                Ladeinfrastruktur vorhanden
+              </label>
+            </div>
+
+            <label class="space-y-2">
+              <span class="block text-sm font-semibold text-foreground">Welche Fragen oder Ziele sind für euch aktuell zentral?</span>
+              <textarea
+                name="questions"
+                rows="5"
+                class="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+                placeholder="z. B. gemeinsamer Eigenverbrauch, ZEV-Erweiterung, Lastspitzen, Abrechnung oder Interesse an einer lokalen Gemeinschaft"
+              ></textarea>
+            </label>
+
+            <div class="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
+              <label class="flex items-start gap-3 text-sm text-foreground">
+                <input name="shareWithResearchers" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-border" />
+                Ich teile Gemeinde, Netzbetreiber, Technikmerkmale und Fragen mit dem Forschungsteam.
+              </label>
+              <label class="flex items-start gap-3 text-sm text-foreground">
+                <input name="interestedInCommunity" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-border" />
+                Ich möchte signalisieren, dass ich an einer lokalen Energiegemeinschaft interessiert bin.
+              </label>
+              <label class="flex items-start gap-3 text-sm text-foreground">
+                <input name="visibleInterest" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-border" />
+                Wenn andere aus derselben Gemeinde hier aktiv sind, darf meine bei Auth0 hinterlegte E-Mail in dieser Browser-Vorschau sichtbar sein.
+              </label>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-foreground px-6 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] hover:bg-foreground/90"
+              >
+                Profil speichern
+              </button>
+              <button
+                type="button"
+                data-action="export-profile"
+                class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-6 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/80"
+              >
+                Profil als JSON exportieren
+              </button>
+              <a
+                href={siteConfig.socialLinks.email}
+                data-action="email-researchers"
+                class="inline-flex items-center justify-center rounded-xl border border-border bg-background px-6 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/60"
+              >
+                Forschungsteam kontaktieren
+              </a>
+            </div>
+          </form>
+        </Card>
+
+        <Card>
+          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Schritt 2 · Energiedaten</p>
+              <h2 class="text-2xl font-bold tracking-tight text-foreground">CSV hochladen und erste Auswertung erhalten</h2>
+            </div>
+            <p class="text-sm text-muted-foreground">Keine Tarifeingabe nötig; Fokus auf Struktur, Energiemenge und erstem Optimierungssignal</p>
+          </div>
+
+          <form data-upload-form class="mt-6 space-y-5">
+            <label class="space-y-2">
+              <span class="block text-sm font-semibold text-foreground">CSV-Dateien</span>
+              <input
+                type="file"
+                name="files"
+                accept=".csv,text/csv"
+                multiple
+                class="block w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold"
+              />
+            </label>
+
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-foreground px-6 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] hover:bg-foreground/90"
+              >
+                Dateien analysieren
+              </button>
+              <button
+                type="button"
+                data-action="clear-files"
+                class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-6 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/80"
+              >
+                Dateiübersicht leeren
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-8 grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Erkannte Energie</p>
+              <p class="mt-3 text-2xl font-bold text-foreground" data-total-kwh>–</p>
+              <p class="mt-1 text-sm text-muted-foreground">Summiert aus erkannten Energie-Spalten</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Zeitfenster</p>
+              <p class="mt-3 text-lg font-bold text-foreground" data-timespan>–</p>
+              <p class="mt-1 text-sm text-muted-foreground">Erstes bis letztes erkanntes Datum über alle Dateien</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/50 p-5">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Optimierungssignal</p>
+              <p class="mt-3 text-2xl font-bold text-foreground" data-saving-value>–</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-saving-caption>Solar-Proxy: geschätzter Anteil, der zeitlich in ein lokales PV-Erzeugungsfenster passt</p>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <h3 class="text-lg font-bold text-foreground">Dateiübersicht</h3>
+            <div data-file-list class="mt-4 space-y-3">
+              <p class="text-sm text-muted-foreground">Noch keine Dateien analysiert.</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div class="space-y-8">
+        <Card>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Schritt 3 · Lokale Signale</p>
+          <h2 class="mt-2 text-2xl font-bold tracking-tight text-foreground">Wer kommt aus derselben Gemeinde?</h2>
+          <p class="mt-3 text-sm text-muted-foreground">
+            Mit REST-Backend kommen die Zahlen aus Postgres. Ohne Backend bleibt diese Übersicht lokal im Browser und dient als Vorschau für den späteren Matching-Flow.
+          </p>
+
+          <div class="mt-6 grid gap-4 md:grid-cols-2">
+            <div class="rounded-2xl border border-border bg-muted/40 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Registrierungen</p>
+              <p class="mt-3 text-2xl font-bold text-foreground" data-municipality-count-large>0</p>
+              <p class="mt-1 text-sm text-muted-foreground" data-municipality-count-large-caption>Profile mit gleicher Gemeinde in dieser Browser-Vorschau</p>
+            </div>
+            <div class="rounded-2xl border border-border bg-muted/40 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Sichtbare Kontakte</p>
+              <p class="mt-3 text-2xl font-bold text-foreground" data-visible-interest-count>0</p>
+              <p class="mt-1 text-sm text-muted-foreground">Nur wenn andere ihre Sichtbarkeit aktiv freigegeben haben</p>
+            </div>
+          </div>
+
+          <div data-visible-interest-list class="mt-6 space-y-3">
+            <p class="text-sm text-muted-foreground">Noch keine sichtbaren Interessenssignale aus derselben Gemeinde.</p>
+          </div>
+        </Card>
+
+        <Card>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Schritt 4 · Fragen und Beobachtungen</p>
+          <h2 class="mt-2 text-2xl font-bold tracking-tight text-foreground">Was sollte als Nächstes untersucht werden?</h2>
+          <p class="mt-3 text-sm text-muted-foreground">
+            Sammle deine eigenen Fragen aus dem laufenden Betrieb oder aus der Idee einer neuen Gemeinschaft. Andere sehen diese Liste nicht.
+          </p>
+
+          <form data-community-form class="mt-6 space-y-4">
+            <label class="space-y-2">
+              <span class="block text-sm font-semibold text-foreground">Neue Frage oder Beobachtung</span>
+              <textarea
+                name="message"
+                rows="4"
+                class="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground"
+                placeholder="z. B. Wer wäre in unserer Gemeinde an einer ZEV- oder LEG-Lösung interessiert? Welche Lastspitzen sind sichtbar?"
+              ></textarea>
+            </label>
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-foreground px-6 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] hover:bg-foreground/90"
+              >
+                Beitrag speichern
+              </button>
+              <button
+                type="button"
+                data-action="clear-community"
+                class="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-6 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted/80"
+              >
+                Fragenliste leeren
+              </button>
+            </div>
+          </form>
+
+          <div data-community-list class="mt-6 space-y-3">
+            <p class="text-sm text-muted-foreground">Noch keine Fragen gespeichert.</p>
+          </div>
+        </Card>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js" defer></script>
+<script src="/scripts/communi-space.js" defer></script>

@@ -1,0 +1,121 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+import Hero from "../../components/widgets/Hero.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const metadata = {
+  title: `Mitmachen | ${siteConfig.name}`,
+  description:
+    "Überblick über den persönlichen Bereich von Communi.ch: Login, Datenupload, Forschungsprofil und Austausch in lokalen Gemeinschaften.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Was <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Mein Bereich</span> konkret ermöglicht`}
+    tagline="Mitmachen"
+    description="Diese Seite erklärt den Ablauf rund um `Mein Bereich`: Login, Datenupload, Forschungsprofil und gemeinschaftsbezogene Zusammenarbeit. Wer direkt loslegen will, geht von hier aus ohne Umweg in die geschützte Plattform."
+    actions={[
+      { text: "Mein Bereich öffnen", href: "/raum/?login=1", variant: "primary", icon: "lucide:log-in" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">1. Energiedaten hochladen</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          In `Mein Bereich` lassen sich CSV-Exporte aus Zählerportalen, Smart Metern oder Abrechnungssystemen direkt im Browser auswerten.
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Erster Überblick über erkannte kWh-Werte</li>
+          <li>Grobe Kostenbasis und Sparpotenzial</li>
+          <li>Lokale Analyse ohne sofortigen Backend-Aufwand</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">2. Forschungsprofil teilen</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Teilnehmende beschreiben ihre Gemeinschaft, Region, Zählerstruktur und Ziele. So entsteht ein brauchbarer Forschungskontext statt isolierter Datenfiles.
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Gemeinschaftsname, Region und Anzahl Zähler</li>
+          <li>Angaben zu Batterie und Ladeinfrastruktur</li>
+          <li>Export oder Weitergabe an das Forschungsteam</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">3. In der Gemeinschaft austauschen</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Beobachtungen, Fragen und Hypothesen können gemeinschaftsbezogen gesammelt werden. Das schafft einen strukturierten Übergang von Daten zu Zusammenarbeit.
+        </p>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Notizen zu Lastspitzen, Tarifen und Regeln</li>
+          <li>Fragen an Forschende oder andere Teilnehmende</li>
+          <li>Grundlage für spätere gemeinsame Plattformfunktionen</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">So läuft der Einstieg ab</h2>
+        <ol class="mt-6 space-y-4 text-sm text-muted-foreground">
+          <li><span class="font-semibold text-foreground">1.</span> `Mein Bereich` öffnen und mit Auth0 anmelden.</li>
+          <li><span class="font-semibold text-foreground">2.</span> Energiedaten als CSV hochladen und erste Potenziale prüfen.</li>
+          <li><span class="font-semibold text-foreground">3.</span> Gemeinschaft und Ziele beschreiben, damit die Daten sinnvoll eingeordnet werden können.</li>
+          <li><span class="font-semibold text-foreground">4.</span> Beobachtungen, Fragen und nächste Schritte innerhalb der Gemeinschaft strukturieren.</li>
+        </ol>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <Button href="/raum/?login=1" variant="primary">Mein Bereich öffnen</Button>
+          <Button href="/kontakt/" variant="secondary">Kontakt</Button>
+        </div>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was wir von Teilnehmenden brauchen</h2>
+        <p class="text-sm text-muted-foreground">
+          Im Zentrum stehen Daten, Kontext und Lernbereitschaft: Welche Art von Gemeinschaft seid ihr, wie sieht euer Verbrauch aus, wo vermutet ihr Potenzial, und welche Entscheidungen wollt ihr besser verstehen?
+        </p>
+        <ul class="mt-6 text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Strukturierte Verbrauchs-, Erzeugungs- oder Betriebsdaten</li>
+          <li>Kurze Einordnung eurer lokalen Situation und Ziele</li>
+          <li>Feedback dazu, welche Rückmeldungen und Tools euch wirklich helfen</li>
+        </ul>
+        <p class="mt-6 text-sm text-muted-foreground">
+          Der aktuelle Stand ist bewusst schlank: Auth0-Login, lokale Auswertung und vorbereiteter Austausch. Gemeinsame Datenhaltung und echte Mehrbenutzerfunktionen folgen erst mit Backend.
+        </p>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-5xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Welcher Weg für wen sinnvoll ist</h2>
+      <div class="grid gap-6 md:grid-cols-3">
+        <div>
+          <h3 class="font-semibold text-foreground">Direkter Einstieg</h3>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Für bekannte Teilnehmende oder bestehende Gemeinschaften: direkt über `Mein Bereich` einloggen und weiterarbeiten.
+          </p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-foreground">Erst Orientierung</h3>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Für neue Interessierte: zuerst diese Seite lesen, dann entscheiden, welche Daten und Ziele eingebracht werden sollen.
+          </p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-foreground">Rückfragen vorab</h3>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Für komplexe Areale, STWEG oder Forschungspartner: über `Kontakt` den passenden Einstieg abstimmen.
+          </p>
+        </div>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

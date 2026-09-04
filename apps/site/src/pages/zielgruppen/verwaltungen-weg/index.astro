@@ -1,0 +1,77 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../../config/site";
+import Hero from "../../../components/widgets/Hero.astro";
+import Card from "../../../components/ui/Card.astro";
+import Button from "../../../components/ui/Button.astro";
+import ParallaxImage from "../../../components/ui/ParallaxImage.astro";
+import heroImg from "../../../assets/images/stockwerkgemeinschaft.JPEG";
+
+const metadata = {
+  title: `Verwaltungen/STWEG: Energiegemeinschaften selbst abrechnen | ${siteConfig.name}`,
+  description:
+    "Für Immobilienverwaltungen und Stockwerkeigentümergemeinschaften (STWEG): Abrechnung im Eigenbetrieb – Rollen, Daten, Prozesse, Sonderfälle, Kommunikation.",
+};
+---
+
+<BaseLayout {metadata}>
+  <Hero
+    title={`Selbst abrechnen – <span class="bg-linear-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">robust</span> im Alltag`}
+    tagline="Zielgruppe · Verwaltung / STWEG"
+    description="Wenn Verwaltungen oder Stockwerkeigentümergemeinschaften (STWEG) selbst abrechnen wollen, braucht es klare Regeln, saubere Daten und Prozesse für Sonderfälle."
+    actions={[
+      { text: "Abrechnung im Eigenbetrieb", href: "/wissen/abrechnung-selbstbetrieb/", variant: "primary", icon: "lucide:receipt" },
+      { text: "Messung & Abrechnung", href: "/wissen/messung-und-abrechnung/", variant: "secondary", icon: "lucide:gauge" },
+      { text: "Kontakt", href: "/kontakt/", variant: "secondary", icon: "lucide:mail" },
+    ]}
+  />
+
+  <ParallaxImage
+    image={heroImg}
+    alt="Luftaufnahme einer Wohnanlage mit gemeinschaftlichen Grünflächen."
+    eyebrow="Verwaltung und STWEG"
+    title="Gemeinschaften werden vor allem im Alltag robust"
+    description="Gerade bei Wohnanlagen entscheiden Transparenz, faire Regeln und verständliche Abrechnung darüber, ob Energiegemeinschaften langfristig funktionieren."
+  />
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was ihr klären müsst</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Rollen & Verantwortlichkeiten</li>
+          <li>Regeln für Sonderfälle</li>
+          <li>Kommunikation & Transparenz</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was oft unterschätzt wird</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Supportaufwand (Fragen, Korrekturen)</li>
+          <li>Datenqualität und Nachvollziehbarkeit</li>
+          <li>Change-Management (Regeln, Tarife, Ausbau)</li>
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-xl font-bold text-foreground mb-2">Was wir liefern können</h2>
+        <ul class="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+          <li>Prozess-Blueprint (Onboarding, Changes, Support)</li>
+          <li>Abrechnungslogik verständlich aufgesetzt</li>
+          <li>Vorlagen/Kommunikationsbausteine</li>
+        </ul>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+    <Card class="max-w-4xl mx-auto">
+      <h2 class="text-xl font-bold text-foreground mb-2">Eigenbetrieb vs. Dienstleister</h2>
+      <p class="text-sm text-muted-foreground">
+        Viele Verwaltungen fahren gut mit einem hybriden Modell: Regeln/Governance intern, Mess-/Datenverarbeitung teilweise extern – wichtig ist, dass Verantwortlichkeiten und Eskalationswege klar sind.
+      </p>
+      <div class="mt-6">
+        <Button href="/mitgliedschaft/" variant="secondary">Mitmachen</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>
