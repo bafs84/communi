@@ -77,13 +77,25 @@ identity provider and do not verify your tenant configuration.
 
 ## 3. Configure the Cloudflare Tunnel
 
-Create a remotely managed tunnel and these published application routes:
+Create a remotely managed tunnel and configure this public hostname routing:
 
 | Public hostname | Service URL |
 | --- | --- |
 | `communi.ch` | `http://gateway:8080` |
-| `www.communi.ch` | `http://gateway:8080` |
+| `www.communi.ch` | Edge redirect to `https://communi.ch` (see below) |
 | `ckw.communi.ch` | `http://gateway:8080` |
+
+Verify **DNS → Records** as well as the tunnel route. The root domain and `ckw`
+must have proxied CNAME records pointing to `<TUNNEL_ID>.cfargotunnel.com`.
+Existing A/AAAA records pointing to a previous web host must be replaced for
+those exact hostnames; changing the tunnel's Service URL alone does not move
+traffic away from an old DNS destination. Preserve mail records (MX, SPF,
+DKIM, DMARC and mail configuration records) and unrelated hostnames.
+
+For `www`, configure an edge redirect to `https://communi.ch` preserving the
+path and query string. Its existing proxied DNS records can remain in place
+when the redirect handles the request at Cloudflare. This keeps Auth0 login
+on the canonical hostname and avoids changing any mail records on `www`.
 
 Leave the HTTP Host Header override unset. Enable HTTPS at Cloudflare. Bypass
 caching for `/api/*`, `/v1/*`, `/raum/*`, `/communi-config.js` and the CKW hostname
@@ -91,6 +103,11 @@ except fingerprinted `/assets/*` files. Do not use Cache Everything on the app.
 
 The guest calculator is at `https://ckw.communi.ch/`; authenticated saved projects
 are at `https://communi.ch/raum/ckw/`.
+
+If the old site still appears, request `/health/ready` and `/communi-config.js`.
+The new gateway returns HTTP 200 for both. A previous hosting provider's 404
+page means the request is reaching the old origin. Check the exact hostname's
+DNS record and any wildcard fallback before rebuilding images or purging caches.
 
 ## 4. Deploy and verify
 
