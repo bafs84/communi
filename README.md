@@ -41,3 +41,10 @@ or tunnel credential belongs in this repository or any container image.
 Operational details are in [the deployment runbook](docs/DEPLOYMENT.md), and
 the enforceable retention model is documented in
 [the privacy lifecycle](docs/PRIVACY_AND_DATA_LIFECYCLE.md).
+
+## Portainer deployment
+
+For a Git-backed Docker Standalone stack with Cloudflare Tunnel included, use
+`compose.portainer.yaml` and follow [the Portainer guide](docs/PORTAINER.md).
+All deployment values, including secrets, are entered in Portainer. No local
+`.env`, secret files or host bind mounts are required by this stack.

@@ -1,5 +1,9 @@
 # Deployment runbook
 
+For deployment through Portainer using environment variables and an included
+Cloudflare Tunnel, use [the Portainer guide](PORTAINER.md) and
+`compose.portainer.yaml` instead of the file-based secret setup below.
+
 The repository deploys as one Docker Compose application. Only the gateway is
 published on the host. PostgreSQL, Garage, the ownership API and the CKW
 calculation engine live on an internal Docker network; Cloudflare Tunnel makes

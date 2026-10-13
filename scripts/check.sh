@@ -16,4 +16,5 @@ cd "$root_dir"
 docker build --target test --tag communi-api-test services/api
 docker build --target test --tag communi-ckw-engine-test services/ckw-engine
 docker compose config --quiet
+docker compose --env-file docs/portainer.env.example -f compose.portainer.yaml config --quiet
 echo "Source and container test targets passed."
