@@ -35,17 +35,45 @@ Garage/S3, `DATA_ENCRYPTION_KEY` or `CKW_INTERNAL_TOKEN` variables.
 
 ## 2. Configure Auth0
 
-Use an Auth0 single-page application and configure its allowed URLs:
+1. In **Applications → Applications → Create Application**, create `Communi`
+   and select **Single Page Web Applications**. Copy the Domain and Client ID
+   into the two `PUBLIC_AUTH0_*` variables above. Keep the browser app's token
+   endpoint authentication method set to `None`; no client secret is needed.
+2. In the application's Settings, enter the following comma-separated URLs and
+   save. Use `communi.ch` as the canonical hostname; if serving `www.communi.ch`,
+   redirect it to `communi.ch` at Cloudflare before starting a login flow.
 
 | Setting | Values |
 | --- | --- |
 | Allowed Callback URLs | `https://communi.ch/raum/`, `https://communi.ch/raum/ckw/`, `https://ckw.communi.ch/` |
-| Allowed Logout URLs | `https://communi.ch/raum/`, `https://ckw.communi.ch/` |
+| Allowed Logout URLs | `https://communi.ch/raum/`, `https://ckw.communi.ch/`, `https://ckw.communi.ch/raum/` |
 | Allowed Web Origins | `https://communi.ch`, `https://ckw.communi.ch` |
 
-No client secret is needed. Enable self-signup in Auth0 if required.
-For local development add the equivalent URLs on `http://localhost:8080` and
+3. Enable **Refresh Token Rotation** in the application's Settings. Under
+   **Advanced Settings → Grant Types**, enable **Authorization Code** and
+   **Refresh Token**. The CKW client already requests refresh tokens through
+   the Auth0 SPA SDK.
+4. Under **Authentication → Database**, enable a database connection such as
+   `Username-Password-Authentication` for the Communi application. Leave
+   **Disable Sign Ups** off if visitors should be able to register themselves.
+5. In **Applications → APIs → Create API**, create `Communi API` with identifier
+   **`https://api.communi.ch`** (no trailing slash) and signing algorithm **RS256**.
+   This identifier is the token audience; it does not require a separate DNS
+   record, host or API container.
+6. In that API's Settings, enable **Allow Offline Access**. If your tenant shows
+   **Application Access Policy**, choose **Per-app authorization** for
+   **User-Delegated Access**, then authorize the Communi SPA for user-delegated
+   access on the **Application Access** tab. No custom API permissions or roles
+   are required by this platform; the API enforces project ownership itself.
+
+Save the application and API settings. For local development add the equivalent
+callback/logout URLs and origins on `http://localhost:8080` and
 `http://ckw.localhost:8080`.
+
+After deployment, visit `https://communi.ch/raum/ckw/`, register a test account,
+create and save a synthetic project, log out, log in again and reopen it. This
+checks the real Auth0 integration; the repository's isolated tests use a test
+identity provider and do not verify your tenant configuration.
 
 ## 3. Configure the Cloudflare Tunnel
 
@@ -116,5 +144,8 @@ explicit data migration has been performed. The old SQL is retained under
 ## References
 
 - [Portainer Git stacks and environment variables](https://docs.portainer.io/user/docker/stacks/add)
+- [Auth0 SPA registration](https://auth0.com/docs/get-started/auth0-overview/create-applications/single-page-web-apps)
+- [Auth0 SPA refresh-token configuration](https://support.auth0.com/center/s/article/How-to-Use-Refresh-Tokens-in-a-SPA)
+- [Auth0 API application access policies](https://auth0.com/blog/developers-guide-api-access-policies-auth0/)
 - [Cloudflare tunnel tokens](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/)
 - [SQLite WAL and backup considerations](https://www.sqlite.org/wal.html)
