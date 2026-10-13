@@ -103,6 +103,7 @@
       resultBox?.classList.remove("hidden");
       input.value = "";
     } catch (error) {
+      window.__COMMUNI_REPORT_ERROR__?.(error, "sunshine");
       if (error instanceof TypeError) {
         showError(
           `Die Backend-API ist unter ${apiBaseUrl} nicht erreichbar. Starte die API und versuche es erneut.`,

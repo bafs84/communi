@@ -1,3 +1,4 @@
+import { reportError } from "./observability";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   endGuestSession,
@@ -22,7 +23,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const [ended, setEnded] = useState(false);
 
   useEffect(() => {
-    initializeAccess().then(setAccess).catch((reason) => setError(String(reason?.message ?? reason)));
+    const changed = (event: Event) => setAccess((event as CustomEvent<AccessContext>).detail);
+    window.addEventListener("communi-access-changed", changed);
+    initializeAccess().then(setAccess).catch((reason) => { reportError(reason, "access"); setError(String(reason?.message ?? reason)); });
+    return () => window.removeEventListener("communi-access-changed", changed);
   }, []);
 
   useEffect(() => {
@@ -55,8 +59,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
           <>
             <span><strong>Private Gastsitzung</strong> · Löschung nach 60 Min. Inaktivität, spätestens in {expiryLabel}.</span>
             <div>
-              <button type="button" className="bannerPrimary" onClick={() => registerAndKeepProjects().catch((reason) => setError(String(reason?.message ?? reason)))}>Registrieren & behalten</button>
-              <button type="button" className="bannerSecondary" onClick={() => endGuestSession().then(() => setEnded(true)).catch((reason) => setError(String(reason?.message ?? reason)))}>Sitzung beenden</button>
+              <button type="button" className="bannerPrimary" onClick={() => registerAndKeepProjects().catch((reason) => { reportError(reason, "access"); setError(String(reason?.message ?? reason)); })}>Registrieren & behalten</button>
+              <button type="button" className="bannerSecondary" onClick={() => endGuestSession().then(() => setEnded(true)).catch((reason) => { reportError(reason, "access"); setError(String(reason?.message ?? reason)); })}>Sitzung beenden</button>
             </div>
           </>
         ) : (

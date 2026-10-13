@@ -1,3 +1,4 @@
+import { reportError } from "./observability";
 import { FormEvent, useEffect, useState } from "react";
 import { Download, PlugZap, Upload } from "lucide-react";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
@@ -58,7 +59,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
   }
 
   useEffect(() => {
-    refreshHistory().catch(() => undefined);
+    refreshHistory().catch((error) => reportError(error, "billing-history"));
   }, []);
 
   async function downloadHistoryResult(result: BillingResult) {
@@ -126,6 +127,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
         `${periodLabel} mit ${invoiceLabel}, ${overviewLabel}${batchOverviewLabel} ${periodCount === "1" ? "wurde" : "wurden"} erstellt.`,
       );
     } catch (exc) {
+      reportError(exc, "billing");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setBusy(false);
@@ -171,7 +173,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
                   type="button"
                   className="secondaryButton"
                   key={result.result_id}
-                  onClick={() => downloadHistoryResult(result).catch((reason) => setError(String(reason?.message ?? reason)))}
+                  onClick={() => downloadHistoryResult(result).catch((reason) => { reportError(reason, "billing"); setError(String(reason?.message ?? reason)); })}
                 >
                   <Download size={15} />
                   {result.filename}

@@ -1,5 +1,7 @@
 **
 !apps/
+!apps/shared/
+!apps/shared/**
 !apps/site/
 !apps/site/**
 !apps/ckw-web/

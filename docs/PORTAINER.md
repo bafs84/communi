@@ -8,6 +8,10 @@ Cloudflare Tunnel. SQLite and private file storage are embedded in the API;
 no PostgreSQL, Garage, S3 credentials or separate migration service are needed.
 The stack uses named volumes and has no bind mounts or host ports.
 
+GlitchTip error tracking for the supplied Communi project is preconfigured;
+no additional environment variable is required. See [error tracking and upload
+recovery](OBSERVABILITY.md) for coverage, privacy and optional overrides.
+
 ## 1. Enter the external account values
 
 In Portainer's stack environment editor, enter:

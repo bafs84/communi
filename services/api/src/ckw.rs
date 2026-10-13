@@ -428,6 +428,7 @@ struct EngineResponse {
 
 #[derive(Serialize)]
 struct GuestSessionResponse {
+    resumed: bool,
     #[serde(rename = "csrfToken")]
     csrf_token: String,
     #[serde(rename = "idleExpiresAt")]
@@ -684,8 +685,24 @@ async fn actor_from_headers(
     Ok(Actor::Guest { session_key: key })
 }
 
-async fn create_guest_session(State(state): State<CkwState>) -> Result<Response, CkwError> {
+async fn create_guest_session(State(state): State<CkwState>, headers: HeaderMap) -> Result<Response, CkwError> {
     state.cleanup_guests().await;
+    // Cookies are shared across tabs, CSRF storage is not. Resume the server
+    // session instead of replacing its cookie whenever another tab opens.
+    if let Some(token) = cookie_value(&headers, &state.cookie_name) {
+        let mut guests = state.guests.lock().await;
+        if let Some(session) = guests.get_mut(&token_key(&token)) {
+            session.last_activity = Utc::now();
+            let mut response = Json(GuestSessionResponse {
+                resumed: true,
+                csrf_token: session.csrf_token.clone(),
+                idle_expires_at: session.last_activity + state.guest_idle,
+                hard_expires_at: session.created_at + state.guest_max_age,
+            }).into_response();
+            response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+            return Ok(response);
+        }
+    }
     let token = random_token();
     let key = token_key(&token);
     let csrf_token = random_token();
@@ -703,6 +720,7 @@ async fn create_guest_session(State(state): State<CkwState>) -> Result<Response,
         },
     );
     let body = GuestSessionResponse {
+        resumed: false,
         csrf_token,
         idle_expires_at: now + state.guest_idle,
         hard_expires_at: now + state.guest_max_age,
@@ -2325,6 +2343,37 @@ mod tests {
             guest_tmp_dir: root.join("guests"), cookie_name: "test".into(), cookie_secure: true,
             guests: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    #[tokio::test]
+    async fn guest_session_resumes_cookie_across_tabs_and_replaces_expired_session() {
+        let root = std::env::temp_dir().join(format!("communi-session-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        let response = create_guest_session(State(state.clone()), HeaderMap::new()).await.unwrap();
+        let cookie = response.headers().get(SET_COOKIE).unwrap().to_str().unwrap().split(';').next().unwrap().to_owned();
+        let body: Value = serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(body["resumed"], false);
+        let mut headers = HeaderMap::new();
+        headers.insert(COOKIE, cookie.parse().unwrap());
+        let response = create_guest_session(State(state.clone()), headers.clone()).await.unwrap();
+        assert!(response.headers().get(SET_COOKIE).is_none());
+        let resumed: Value = serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(resumed["resumed"], true);
+        assert_eq!(resumed["csrfToken"], body["csrfToken"]);
+        assert_eq!(state.guests.lock().await.len(), 1);
+        assert!(actor_from_headers(&state, &headers, true).await.is_err());
+        headers.insert(CSRF_HEADER, body["csrfToken"].as_str().unwrap().parse().unwrap());
+        assert!(actor_from_headers(&state, &headers, true).await.is_ok());
+        for session in state.guests.lock().await.values_mut() {
+            session.last_activity = Utc::now() - Duration::hours(2);
+        }
+        let response = create_guest_session(State(state.clone()), headers).await.unwrap();
+        assert!(response.headers().get(SET_COOKIE).is_some());
+        let renewed: Value = serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(renewed["resumed"], false);
+        assert_ne!(renewed["csrfToken"], body["csrfToken"]);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

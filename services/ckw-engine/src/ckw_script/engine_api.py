@@ -6,11 +6,16 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Request, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+import sentry_sdk
+from .observability import initialize_observability, report_exception
+
+initialize_observability()
 
 from .portal_analysis import (
     add_cached_project_plant,
@@ -479,6 +484,21 @@ def create_engine_app(settings: EngineSettings | None = None) -> FastAPI:
     Path(settings.pv_plant_cache_path).parent.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title="Communi CKW calculation engine", version="1.0.0")
 
+    @app.middleware("http")
+    async def track_errors(request: Request, call_next):
+        try:
+            response = await call_next(request)
+        except Exception as error:
+            report_exception(error, request)
+            raise
+        if response.status_code >= 400 and not getattr(request.state, "error_reported", False):
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("endpoint", request.url.path)
+                scope.set_tag("method", request.method)
+                scope.set_tag("status", response.status_code)
+                sentry_sdk.capture_message("Engine HTTP failure", level="error" if response.status_code >= 500 else "warning")
+        return response
+
     @app.get("/internal/health")
     def health(authorization: Annotated[str | None, Header()] = None) -> dict[str, str]:
         _require_token(authorization, expected_token)
@@ -491,6 +511,7 @@ def create_engine_app(settings: EngineSettings | None = None) -> FastAPI:
 
     @app.post("/internal/v1/execute")
     async def execute(
+        request: Request,
         manifest: Annotated[str, Form()],
         files: Annotated[list[UploadFile] | None, File()] = None,
         authorization: Annotated[str | None, Header()] = None,
@@ -518,8 +539,10 @@ def create_engine_app(settings: EngineSettings | None = None) -> FastAPI:
         except HTTPException:
             raise
         except (KeyError, ValueError) as exc:
+            report_exception(exc, request)
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
+            report_exception(exc, request)
             raise HTTPException(status_code=500, detail="calculation failed") from exc
 
     return app

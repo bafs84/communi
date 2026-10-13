@@ -41,6 +41,8 @@ const finalIgnoreTitleTemplate = metadata?.ignoreTitleTemplate || false;
             ignoreTitleTemplate={finalIgnoreTitleTemplate}
         />
         <Schema type="WebSite" data={{}} />
+        <script is:inline src="/communi-config.js"></script>
+        <script>import "../lib/observability";</script>
         <slot name="head" />
     </head>
     <body

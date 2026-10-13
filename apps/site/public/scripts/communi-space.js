@@ -372,7 +372,8 @@
         try {
           rawCsv = await file.text();
           stats = analyseCsv(rawCsv);
-        } catch {
+        } catch (error) {
+      window.__COMMUNI_REPORT_ERROR__?.(error, "workspace");
           rawCsv = "";
         }
       }
@@ -764,7 +765,8 @@
         };
         workspaceState.files = Array.isArray(parsed.files) ? parsed.files : [];
       }
-    } catch {
+    } catch (error) {
+      window.__COMMUNI_REPORT_ERROR__?.(error, "workspace");
       workspaceState.profile = { ...defaultProfile };
       workspaceState.files = [];
     }
@@ -772,7 +774,8 @@
     try {
       const questionsRaw = window.localStorage.getItem(questionStorageKey());
       workspaceState.questions = questionsRaw ? JSON.parse(questionsRaw) : [];
-    } catch {
+    } catch (error) {
+      window.__COMMUNI_REPORT_ERROR__?.(error, "workspace");
       workspaceState.questions = [];
     }
   }
@@ -800,7 +803,8 @@
     try {
       const raw = window.localStorage.getItem(REGISTRY_KEY);
       return raw ? JSON.parse(raw) : [];
-    } catch {
+    } catch (error) {
+      window.__COMMUNI_REPORT_ERROR__?.(error, "workspace");
       return [];
     }
   }
@@ -841,9 +845,6 @@
   async function ensureAccessToken() {
     if (!useRemotePersistence) {
       return "";
-    }
-    if (accessToken) {
-      return accessToken;
     }
 
     accessToken = await auth0Client.getTokenSilently({
@@ -1547,7 +1548,8 @@
   });
 
   setPanel("loading");
-  initAuth().catch(() => {
+  initAuth().catch((error) => {
+    window.__COMMUNI_REPORT_ERROR__?.(error, "auth");
     setPanel("setup");
   });
 })();

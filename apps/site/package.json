@@ -40,5 +40,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@sentry/browser": "^10.76.2"
   }
 }

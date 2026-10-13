@@ -1,3 +1,5 @@
+import { reportError, reportHttpFailure } from "./observability";
+
 export type AccessMode = "guest" | "registered";
 
 export type AccessContext = {
@@ -14,6 +16,9 @@ type RuntimeConfig = {
   auth0ClientId?: string;
   auth0Audience?: string;
   memberCkwUrl?: string;
+  glitchtipDsn?: string;
+  glitchtipEnvironment?: string;
+  release?: string;
 };
 
 type Auth0Client = {
@@ -121,20 +126,19 @@ async function initialize(): Promise<AccessContext> {
     return new Promise<AccessContext>(() => undefined);
   }
 
-  const storedCsrf = sessionStorage.getItem(csrfStorageKey);
-  const storedExpiry = sessionStorage.getItem(expiryStorageKey);
-  if (storedCsrf && storedExpiry) {
-    const expiry = JSON.parse(storedExpiry) as { idleExpiresAt: string; hardExpiresAt: string };
-    context = { mode: "guest", csrfToken: storedCsrf, ...expiry };
-    return context;
-  }
+  return refreshGuestSession();
+}
 
+let guestRefresh: Promise<AccessContext & { resumed?: boolean }> | undefined;
+
+async function requestGuestSession(): Promise<AccessContext & { resumed?: boolean }> {
   const response = await fetch(`${apiBase}/v1/ckw/guest/session`, {
     method: "POST",
     credentials: "include",
   });
   if (!response.ok) throw new Error("Die private Gastsitzung konnte nicht gestartet werden.");
   const guest = await response.json() as {
+    resumed?: boolean;
     csrfToken: string;
     idleExpiresAt: string;
     hardExpiresAt: string;
@@ -144,8 +148,15 @@ async function initialize(): Promise<AccessContext> {
     idleExpiresAt: guest.idleExpiresAt,
     hardExpiresAt: guest.hardExpiresAt,
   }));
-  context = { mode: "guest", ...guest };
-  return context;
+  const next: AccessContext & { resumed?: boolean } = { mode: "guest", ...guest };
+  context = next;
+  window.dispatchEvent(new CustomEvent("communi-access-changed", { detail: next }));
+  return next;
+}
+
+function refreshGuestSession() {
+  guestRefresh ??= requestGuestSession().finally(() => { guestRefresh = undefined; });
+  return guestRefresh;
 }
 
 export function initializeAccess() {
@@ -158,18 +169,62 @@ export function getApiBase() {
 }
 
 export async function apiFetch(input: string, init: RequestInit = {}) {
-  const current = await initializeAccess();
-  const headers = new Headers(init.headers);
-  if (current.mode === "registered" && accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  } else if ((init.method ?? "GET").toUpperCase() !== "GET" && current.csrfToken) {
-    headers.set("X-CSRF-Token", current.csrfToken);
+  await initializeAccess();
+  const method = (init.method ?? "GET").toUpperCase();
+  const url = input.startsWith("http") ? input : `${apiBase}${input}`;
+  // Never disclose the access token to an arbitrary download URL.
+  if (new URL(url, window.location.origin).origin !== new URL(apiBase || window.location.origin, window.location.origin).origin) {
+    throw new Error("Die API-Adresse gehört nicht zu diesem Arbeitsbereich.");
   }
-  return fetch(input.startsWith("http") ? input : `${apiBase}${input}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+  async function send(forceTokenRefresh = false) {
+    const headers = new Headers(init.headers);
+    if (context?.mode === "registered" && authClient) {
+      try {
+        accessToken = await authClient.getTokenSilently({
+          authorizationParams: { audience: runtime.auth0Audience },
+          ...(forceTokenRefresh ? { cacheMode: "off" } : {}),
+        });
+      } catch (error) {
+        reportError(error, "auth");
+        throw new Error("Die Anmeldung ist abgelaufen. Bitte erneut anmelden; die ausgewählten Dateien bleiben erhalten.");
+      }
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    } else if (method !== "GET" && context?.csrfToken) {
+      headers.set("X-CSRF-Token", context.csrfToken);
+    }
+    try {
+      return await fetch(url, { ...init, headers, credentials: "include" });
+    } catch (error) {
+      reportError(error, "network");
+      throw error;
+    }
+  }
+  let response = await send();
+  if (response.status === 401) {
+    const mode = context!.mode;
+    let retry = mode === "registered";
+    if (mode === "guest") {
+      const renewed = await refreshGuestSession();
+      // A 401 occurs before any mutation. Only a stateless billing upload or
+      // project listing may restart after the old guest workspace disappeared.
+      retry = Boolean(renewed.resumed) || (method === "POST" && input === "/api/vzev/invoices")
+        || (method === "GET" && input === "/api/projects");
+    }
+    if (retry) {
+      try { response = await send(true); }
+      catch (error) { reportHttpFailure(input, method, 401, mode, "failed"); throw error; }
+    }
+    reportHttpFailure(input, method, 401, mode, response.ok ? "recovered" : "failed");
+    if (response.status === 401) {
+      return new Response(JSON.stringify({ detail: mode === "guest"
+        ? "Die Gastsitzung ist abgelaufen oder wurde durch einen Serverneustart beendet. Bitte das Projekt erneut öffnen oder anlegen."
+        : "Die Anmeldung ist nicht mehr gültig. Bitte erneut anmelden." }), {
+        status: 401, headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+  if (!response.ok) reportHttpFailure(input, method, response.status, context!.mode);
+  return response;
 }
 
 export async function registerAndKeepProjects() {
@@ -190,6 +245,7 @@ export async function endGuestSession() {
   sessionStorage.removeItem(csrfStorageKey);
   sessionStorage.removeItem(expiryStorageKey);
   context = undefined;
+  initialization = undefined;
 }
 
 export function logout() {

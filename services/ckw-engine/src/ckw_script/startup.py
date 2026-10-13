@@ -33,7 +33,18 @@ def initialize_token(path: Path) -> None:
         raise ValueError("persistent internal token is invalid")
 
 
+def prepare_temp_directory() -> Path:
+    # Nested libraries (pandas, DuckDB, invoice ZIP/DOCX) use tempfile without
+    # an explicit dir. The container root is read-only; only this tmpfs is writable.
+    directory = Path(os.environ.get("CKW_TMP_DIR", "/tmp/communi-ckw"))
+    directory.mkdir(parents=True, exist_ok=True)
+    os.environ["TMPDIR"] = str(directory)
+    tempfile.tempdir = None
+    return directory
+
+
 def main() -> None:
+    prepare_temp_directory()
     if not os.environ.get("CKW_INTERNAL_TOKEN"):
         path = Path(os.environ.setdefault("CKW_INTERNAL_TOKEN_FILE", "/run/communi/internal_token"))
         initialize_token(path)

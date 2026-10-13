@@ -1,3 +1,4 @@
+import { reportError } from "./observability";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { Download, FolderOpen, PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
@@ -1094,6 +1095,7 @@ export function App() {
         energyPriceRpPerKwh: legEnergyPrice.trim() || null
       });
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setLegPricingBusy(false);
@@ -1120,6 +1122,7 @@ export function App() {
         fixedPvTariffRpPerKwh: vzevPvTariffMode === "fixed" ? fixedVzevPvTariff : null
       });
     } catch (exc) {
+      reportError(exc, "calculator");
       setVzevPvTariffWarning(String((exc as Error).message ?? exc));
     } finally {
       setVzevPvTariffBusy(false);
@@ -1127,7 +1130,7 @@ export function App() {
   }
 
   useEffect(() => {
-    refreshProjects().catch((exc) => setError(String(exc.message ?? exc)));
+    refreshProjects().catch((exc) => { reportError(exc, "calculator"); setError(String(exc.message ?? exc)); });
   }, []);
 
   useEffect(() => {
@@ -1138,7 +1141,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    refreshProject(selectedId, workspace).catch((exc) => setError(String(exc.message ?? exc)));
+    refreshProject(selectedId, workspace).catch((exc) => { reportError(exc, "calculator"); setError(String(exc.message ?? exc)); });
   }, [selectedId, workspace]);
 
   useEffect(() => {
@@ -1161,6 +1164,7 @@ export function App() {
       await refreshProjects();
       setSelectedId(project.project_id);
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     }
   }
@@ -1190,6 +1194,7 @@ export function App() {
       }
       setSuccess(`${parts.join("; ")}.`);
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
       throw exc;
     }
@@ -1203,6 +1208,7 @@ export function App() {
       await api(`/api/projects/${selectedId}/files/${file.file_id}`, { method: "DELETE" });
       await Promise.all([refreshProject(selectedId), refreshProjects()]);
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setDeletingFileId("");
@@ -1221,6 +1227,7 @@ export function App() {
         setSelectedId(projectList[0]?.project_id ?? "");
       }
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setDeletingProjectId("");
@@ -1237,6 +1244,7 @@ export function App() {
       setSelectedCachePlantId("");
       return true;
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
       return false;
     } finally {
@@ -1256,6 +1264,7 @@ export function App() {
       const suffix = query.size ? `?${query.toString()}` : "";
       setResidualSolar(await api<ResidualSolarAnalysis>(`/api/projects/${selectedId}/residual-solar${suffix}`));
     } catch (exc) {
+      reportError(exc, "calculator");
       setSelectedResidualSolarSourceIds(previousSourceIds);
       setError(String((exc as Error).message ?? exc));
     } finally {
@@ -1270,6 +1279,7 @@ export function App() {
     try {
       setBatteryPlacements(await api<BatteryPlacements>(`/api/projects/${selectedId}/battery-placements`));
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setBatteryPlacementsBusy(false);
@@ -1287,6 +1297,7 @@ export function App() {
       const suffix = query.size ? `?${query.toString()}` : "";
       setLoadShifting(await api<LoadShiftingAnalysis>(`/api/projects/${selectedId}/load-shifting${suffix}`));
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setLoadShiftingBusy(false);
@@ -1306,6 +1317,7 @@ export function App() {
         })
       );
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setBatteryAssignmentBusyId("");
@@ -1334,6 +1346,7 @@ export function App() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       await refreshSavedResults();
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setExportingVzevCsv(false);
@@ -1368,6 +1381,7 @@ export function App() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       await refreshSavedResults();
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setExportingVzevTariffCsv(false);
@@ -1408,6 +1422,7 @@ export function App() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       await refreshSavedResults();
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setExportingVzevWord(false);
@@ -1463,6 +1478,7 @@ export function App() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       await refreshSavedResults();
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setExportingWord(false);
@@ -1491,6 +1507,7 @@ export function App() {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       await refreshSavedResults();
     } catch (exc) {
+      reportError(exc, "calculator");
       setError(String((exc as Error).message ?? exc));
     } finally {
       setExportingExcel(false);
@@ -1635,7 +1652,7 @@ export function App() {
                   type="button"
                   className="secondaryButton"
                   key={result.result_id}
-                  onClick={() => downloadSavedResult(result).catch((reason) => setError(String(reason?.message ?? reason)))}
+                  onClick={() => downloadSavedResult(result).catch((reason) => { reportError(reason, "calculator"); setError(String(reason?.message ?? reason)); })}
                 >
                   <Download size={15} />
                   {result.filename}

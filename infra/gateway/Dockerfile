@@ -4,6 +4,7 @@ WORKDIR /build/site
 COPY apps/site/package.json apps/site/package-lock.json ./
 RUN npm ci
 COPY apps/site/ ./
+COPY apps/shared/ /build/shared/
 ARG PUBLIC_AUTH0_DOMAIN
 ARG PUBLIC_AUTH0_CLIENT_ID
 ARG PUBLIC_AUTH0_AUDIENCE
@@ -21,6 +22,7 @@ WORKDIR /build/ckw
 COPY apps/ckw-web/package.json apps/ckw-web/package-lock.json ./
 RUN npm ci
 COPY apps/ckw-web/ ./
+COPY apps/shared/ /build/shared/
 RUN npm run build
 
 FROM nginx:1.29.1-alpine

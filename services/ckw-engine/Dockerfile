@@ -4,6 +4,7 @@ FROM python:3.13-slim-bookworm AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    TMPDIR=/tmp/communi-ckw \
     PATH=/app/.venv/bin:$PATH
 
 COPY --from=uv /uv /uvx /usr/local/bin/

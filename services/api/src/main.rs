@@ -35,6 +35,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 mod ckw;
+mod observability;
 mod storage;
 
 #[derive(Clone)]
@@ -303,13 +304,26 @@ impl SeriesKind {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
+    let _telemetry_guard = observability::initialize();
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             "communi_backend_api=info,tower_http=info".into()
         }))
         .with(tracing_subscriber::fmt::layer())
+        .with(sentry::integrations::tracing::layer()
+            .event_filter(|metadata| match *metadata.level() {
+                tracing::Level::ERROR | tracing::Level::WARN => sentry::integrations::tracing::EventFilter::Event,
+                _ => sentry::integrations::tracing::EventFilter::Ignore,
+            })
+            .span_filter(|_| false))
         .init();
 
+    let result = run().await;
+    if result.is_err() { tracing::error!("API startup or server failure"); }
+    result
+}
+
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = Arc::new(Config::from_env()?);
     std::fs::create_dir_all(&config.data_dir)?;
     let options = SqliteConnectOptions::from_str(&config.database_url)?
@@ -378,7 +392,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(ckw::router(ckw_state))
         .layer(TraceLayer::new_for_http())
         .layer(RequestBodyLimitLayer::new(body_limit))
-        .layer(cors);
+        .layer(cors)
+        .layer(axum::middleware::from_fn(observability::track_http));
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;

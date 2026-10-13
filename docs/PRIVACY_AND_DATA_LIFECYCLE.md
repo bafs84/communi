@@ -57,6 +57,13 @@ policy change, not a calculation change.
 
 ## Logging and calculation isolation
 
+Application errors are reported to the Communi project on `errors.bsdata.ch`.
+Browser, API and engine reports are rebuilt from an allowlist before sending;
+uploads, filenames, identities, tokens, raw exception messages, request bodies
+and local variables are excluded. Browser reports pass through a fixed gateway
+relay that strips visitor IP headers and credentials. See [error tracking and
+upload recovery](OBSERVABILITY.md) for coverage and connection metadata limits.
+
 Request tracing must not record request bodies, filenames, Auth0 tokens, CSRF
 tokens, project configuration values or engine error details. The public API
 returns generic dependency errors for internal failures. The engine accepts only
