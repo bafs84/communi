@@ -18,7 +18,7 @@ Guest access is intentionally fail-closed and ephemeral:
 - A restart removes every guest session by design.
 
 Limits are 10 MB per file and 50 MB per guest session. Guest data is never
-written to PostgreSQL, Garage, logs or a container image.
+written to SQLite, persistent local storage, logs or a container image.
 
 The older anonymous solar-share endpoint now returns its calculation directly
 without persisting the upload. At startup, any legacy anonymous rows are removed
@@ -43,13 +43,14 @@ Registered projects remain until the owning Auth0 subject deletes them:
 - Project names, municipalities, configurations, original filenames, uploaded
   contents, generated filenames and generated contents are encrypted using
   AES-256-GCM with a random nonce before persistence.
-- PostgreSQL stores ownership, ciphertext, content hashes, sizes, media types,
-  operations and Garage object keys.
-- Garage is private and contains application-encrypted objects only.
+- SQLite stores ownership, ciphertext, content hashes, sizes, media types,
+  operations and private local storage keys.
+- The API volume contains application-encrypted CKW objects under `/data/objects`.
+  Files are written atomically with private permissions; paths are server-generated.
 - Every generated CSV, DOCX, XLSX or ZIP is stored automatically and remains
   downloadable from the project result history.
 - Deleting a project commits the database deletion and a durable object deletion
-  outbox in one transaction. Failed Garage deletions are retried with backoff.
+  outbox in one transaction. Failed local file deletions are retried with backoff.
 
 The registered quota is 1 GB per user. Changing that value is an operational
 policy change, not a calculation change.
@@ -65,3 +66,20 @@ The CKW calculation package remains stateless from the portal's perspective.
 Each call reconstructs a temporary project, runs the original CKW functions and
 returns the result. This boundary prevents account/storage concerns from
 modifying tariff, interval, reconciliation or document-generation semantics.
+
+## Key initialization and backups
+
+The engine generates the API-to-engine token once in the `internal-secrets`
+volume. The API generates its encryption key once at
+`/data/secrets/data_encryption_key` in `communi-data`. Both use OS randomness,
+private file permissions and atomic publication, and reuse existing files.
+The key is never included in Git, an image or application logs. If encrypted
+projects exist but their encryption key is missing, startup stops instead of
+creating a replacement key. An invalid key also stops startup.
+
+Back up `communi-data` (SQLite, encrypted objects and key) together, and retain
+`internal-secrets`. Stop the stack for a consistent whole-volume backup, or use
+a coordinated online SQLite backup plus object/key snapshot. Never copy only the
+main SQLite file while the API is running: WAL state can contain committed data.
+Workspace profiles, questions and the older participant-upload metadata retain
+their existing storage semantics; CKW project encryption is not full-disk encryption.

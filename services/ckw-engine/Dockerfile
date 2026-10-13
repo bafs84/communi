@@ -29,4 +29,4 @@ FROM base AS runtime
 
 EXPOSE 8000
 
-CMD ["uvicorn", "ckw_script.engine_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-server-header"]
+CMD ["python", "-m", "ckw_script.startup"]

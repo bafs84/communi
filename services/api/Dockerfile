@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libs
 COPY Cargo.toml ./
 COPY Cargo.lock ./
 COPY src ./src
+COPY migrations ./migrations
 RUN cargo build --release --locked
 
 FROM builder AS test
@@ -15,5 +16,6 @@ FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+RUN mkdir -p /data && chmod 700 /data
 COPY --from=builder /app/target/release/communi-backend-api /usr/local/bin/communi-backend-api
 CMD ["communi-backend-api"]

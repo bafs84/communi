@@ -1,32 +1,55 @@
-# Deploy Communi and the CKW calculator with Portainer
+# Deploy the lean CKW platform in Portainer
 
 Repository: `https://github.com/bafs84/communi.git`
 
-Use `compose.portainer.yaml` as a **standalone** Compose file on a Portainer
-**Docker Standalone** environment. It builds the public site, CKW workspace,
-Rust API, Python calculation engine, database migration runner and Garage storage
-from the repository, and starts Cloudflare Tunnel automatically. Docker Swarm
-does not build these images from source and is not supported by this file.
+Use `compose.portainer.yaml` by itself on a **Docker Standalone** environment.
+It builds the public site, CKW app, Rust API and Python engine and includes
+Cloudflare Tunnel. SQLite and private file storage are embedded in the API;
+no PostgreSQL, Garage, S3 credentials or separate migration service are needed.
+The stack uses named volumes and has no bind mounts or host ports.
 
-No host ports are published. The tunnel connects to the gateway over Docker's
-network; PostgreSQL, Garage and the engine have no published ports. The engine
-can make outbound requests for public Swiss PV-plant data, and the API can
-retrieve Auth0 signing keys.
+## 1. Enter the external account values
 
-Configuration and migrations are packaged into images. Persistent data uses
-named Docker volumes. There are no host bind mounts, secret files or `env_file`
-dependencies, so Portainer Business Edition's relative-volume feature is not
-required. Secrets are supplied through Portainer's environment editor and are
-visible to administrators with permission to inspect containers.
+In Portainer's stack environment editor, enter:
 
-## 1. Configure the Cloudflare Tunnel
+```dotenv
+PUBLIC_AUTH0_DOMAIN=communi.eu.auth0.com
+PUBLIC_AUTH0_CLIENT_ID=your-auth0-spa-client-id
+CLOUDFLARED_TUNNEL_TOKEN=your-cloudflare-tunnel-token
+```
 
-Create a remotely managed Cloudflare Tunnel and copy its tunnel token (the
-`eyJ...` value, not the installation command or a Cloudflare API token).
-Enter it as `CLOUDFLARED_TUNNEL_TOKEN` in Portainer. The stack passes it to
-cloudflared as `TUNNEL_TOKEN`.
+Use your actual Auth0 tenant and SPA client ID. Paste just Cloudflare's remotely
+managed tunnel token (`eyJ...`), not an API token or installation command.
+You can import [portainer.env.example](portainer.env.example) and replace its
+two placeholders. `PUBLIC_AUTH0_AUDIENCE` defaults to `https://api.communi.ch`;
+create that API identifier in Auth0 or set this one optional variable to match
+your chosen identifier. The backend derives its issuer and audience from the
+same public settings, so no duplicate Auth0 variables are needed.
 
-Create these published application routes on that tunnel:
+**All internal random secrets are generated automatically on first startup.**
+The engine publishes a random internal token in `internal-secrets`; the API
+creates its encryption key in `communi-data`. Neither needs a Portainer variable.
+Existing files are reused across restarts and redeployments. Invalid keys cause
+startup to fail instead of being replaced. Do not enter the old PostgreSQL,
+Garage/S3, `DATA_ENCRYPTION_KEY` or `CKW_INTERNAL_TOKEN` variables.
+
+## 2. Configure Auth0
+
+Use an Auth0 single-page application and configure its allowed URLs:
+
+| Setting | Values |
+| --- | --- |
+| Allowed Callback URLs | `https://communi.ch/raum/`, `https://communi.ch/raum/ckw/`, `https://ckw.communi.ch/` |
+| Allowed Logout URLs | `https://communi.ch/raum/`, `https://ckw.communi.ch/` |
+| Allowed Web Origins | `https://communi.ch`, `https://ckw.communi.ch` |
+
+No client secret is needed. Enable self-signup in Auth0 if required.
+For local development add the equivalent URLs on `http://localhost:8080` and
+`http://ckw.localhost:8080`.
+
+## 3. Configure the Cloudflare Tunnel
+
+Create a remotely managed tunnel and these published application routes:
 
 | Public hostname | Service URL |
 | --- | --- |
@@ -34,112 +57,64 @@ Create these published application routes on that tunnel:
 | `www.communi.ch` | `http://gateway:8080` |
 | `ckw.communi.ch` | `http://gateway:8080` |
 
-Leave the HTTP Host Header override unset so the gateway receives the original
-hostname and can select the correct app. Enable HTTPS at Cloudflare. Configure
-cache bypass for `/api/*`, `/v1/*`, `/raum/*` and `/communi-config.js`, and for
-the CKW hostname except its fingerprinted `/assets/*` files. Do not apply a
-Cache Everything rule to the application or API.
+Leave the HTTP Host Header override unset. Enable HTTPS at Cloudflare. Bypass
+caching for `/api/*`, `/v1/*`, `/raum/*`, `/communi-config.js` and the CKW hostname
+except fingerprinted `/assets/*` files. Do not use Cache Everything on the app.
 
-The calculator is at `https://ckw.communi.ch/` for guests. Authenticated saved
-projects are at `https://communi.ch/raum/ckw/`.
+The guest calculator is at `https://ckw.communi.ch/`; authenticated saved projects
+are at `https://communi.ch/raum/ckw/`.
 
-## 2. Configure Auth0
+## 4. Deploy and verify
 
-Use an Auth0 single-page application and an API audience. Set the SPA's public
-client ID as `PUBLIC_AUTH0_CLIENT_ID`. No Auth0 client secret is needed.
+In Portainer select **Stacks → Add stack → Repository**:
 
-| Auth0 application setting | Values |
+| Field | Value |
 | --- | --- |
-| Allowed Callback URLs | `https://communi.ch/raum/`, `https://communi.ch/raum/ckw/`, `https://ckw.communi.ch/` |
-| Allowed Logout URLs | `https://communi.ch/raum/`, `https://ckw.communi.ch/` |
-| Allowed Web Origins | `https://communi.ch`, `https://ckw.communi.ch` |
+| Name | `communi` |
+| Repository URL | `https://github.com/bafs84/communi.git` |
+| Repository reference | `refs/heads/main` (or a reviewed release tag) |
+| Compose path | `compose.portainer.yaml` |
 
-Use the same audience for `AUTH0_AUDIENCE` and `PUBLIC_AUTH0_AUDIENCE`. Match
-`PUBLIC_AUTH0_DOMAIN` and `AUTH0_ISSUER_BASE_URL` to your tenant (the issuer URL
-includes `https://` and a trailing `/`). Enable self-signup in Auth0 if required.
+Supply read-only Git authentication if the repository requires it. Enter the
+variables above and deploy. The first build compiles Rust and the web apps;
+allow time and disk space. Portainer Business Edition relative-volume support
+is not required. Docker Swarm is not supported by this source-build stack.
 
-## 3. Create the stack and enter variables
+The engine initializes its token and passes its authenticated health check;
+the API then applies SQLite migrations, initializes its encryption key, and
+starts. Check engine, API and gateway health and cloudflared connection logs.
+Visit `https://communi.ch/health/ready`, create a synthetic guest project and
+verify simulation/export, then verify Auth0 login and saving/reopening a project.
 
-In Portainer, select your Docker Standalone environment, then **Stacks → Add
-stack → Repository**:
+Portainer must support building Git stacks on this Docker environment. If it
+cannot, clone the repository on the Docker host and build there first using
+`docker compose --env-file <private-env-file> -p communi -f compose.portainer.yaml
+build`; then deploy this stack on the same engine.
 
-- Name: `communi` (keep this name for later redeployments to reuse its volumes).
-- Repository URL: `https://github.com/bafs84/communi.git`.
-- Repository reference: `refs/heads/main`.
-- Compose path: `compose.portainer.yaml`.
-- If GitHub requires authentication, supply a read-only repository credential
-  through Portainer's Git authentication fields.
+For updates pull the reviewed Git revision, rebuild and redeploy while retaining
+the stack name and volumes. If your Portainer version reuses old local images,
+build explicitly with the command above. Public Auth0 changes require a gateway
+rebuild because the Astro site embeds that configuration.
 
-In **Environment variables**, load [portainer.env.example](portainer.env.example)
-and replace every `replace-*` value, or enter those variables individually.
-Generate the following values independently, once, and save them in your
-password/secrets manager:
+## Backups and earlier installations
 
-| Variable | Generate or obtain |
-| --- | --- |
-| `POSTGRES_PASSWORD` | `openssl rand -hex 32` (hex avoids URL escaping in the database connection string) |
-| `S3_ACCESS_KEY_ID` | `printf 'GK'; openssl rand -hex 12` |
-| `S3_SECRET_ACCESS_KEY` | `openssl rand -hex 32` |
-| `GARAGE_RPC_SECRET` | `openssl rand -hex 32` |
-| `DATA_ENCRYPTION_KEY` | `openssl rand -base64 32` (must decode to exactly 32 bytes) |
-| `CKW_INTERNAL_TOKEN` | `openssl rand -hex 48` |
-| `CLOUDFLARED_TUNNEL_TOKEN` | Cloudflare's remotely managed tunnel token |
+The single-host deployment uses two named volumes:
 
-Keep `PUBLIC_API_BASE_URL` empty to use the same origin. The remaining public
-configuration in the example matches `communi.ch` and `ckw.communi.ch`.
-Optional quotas, retention, log level and image overrides are listed in the
-Compose file. Keep `CKW_COOKIE_SECURE=true` for the HTTPS deployment.
+- `communi-data`: SQLite database/WAL, registered files/results and encryption key.
+- `internal-secrets`: generated API-to-engine token.
 
-Click **Deploy the stack**. The first deployment compiles Rust and both web
-applications and downloads Python dependencies; allow time and disk space for
-the image builds. The migration service should finish with exit code 0; the
-long-running services should remain running, with health checks passing where
-configured. The stack does not require a manual database initialization step.
+Stop the stack for a consistent backup of both volumes, then restart. Retain both
+on redeployment and restore them together. Keep the encryption key with the data;
+losing it makes encrypted saved projects unrecoverable. Use local Docker volumes
+and one API replica; SQLite WAL is not a distributed database.
 
-Portainer must be able to build images on this Docker environment. If your
-installation cannot build Git stacks, clone this repository on the Docker host
-and build the images with `docker compose --env-file <private-env-file> -f
-compose.portainer.yaml build` first; then deploy the same stack on that engine.
-Supply the same public build configuration and use the stack name `communi`.
-
-## 4. Verify and update
-
-- Check `migrate` logs for successful migrations and exit code 0.
-- Check `garage`, `api` and `gateway` health in Portainer and check `cloudflared`
-  logs for registered tunnel connections.
-- Visit `https://communi.ch/health/ready`; it should return HTTP 200.
-- Open `https://ckw.communi.ch/`, create a guest vZEV project, upload a
-  non-customer test CSV and verify simulation and an export.
-- Log in at `https://communi.ch/raum/ckw/` and verify saving and reopening a
-  test project.
-
-For source updates, pull the new Git revision, rebuild the application images
-and redeploy. In Portainer, use **Pull and redeploy** and the image-build option
-provided by your version. If it reuses existing local images, build explicitly
-on the Docker host using the command above, then redeploy. Changes to the public
-Auth0 build arguments also require rebuilding the gateway image because the
-Astro site embeds that configuration at build time.
-
-For repeatable releases, deploy a reviewed Git commit/tag and retain its built
-images for rollback. Do not delete the persistent volumes during updates.
-
-## Backups and existing deployments
-
-Back up PostgreSQL, the `garage-meta` and `garage-data` volumes, and all private
-environment values as one recovery set. The bundled Garage service has one
-storage node; keep independent backups before storing real project data.
-Losing `DATA_ENCRYPTION_KEY` makes saved encrypted data unrecoverable.
-
-When moving an existing installation to this stack, retain its stack/volume
-names and copy its existing encryption key, internal token, Garage RPC secret,
-S3 credentials and database password into Portainer. Do not generate replacement
-keys for existing data. Changing a Postgres environment password does not change
-the password inside an initialized database, and changing Garage environment
-credentials does not rotate an already imported key.
+This is a fresh SQLite deployment, not an automatic conversion of the previous
+PostgreSQL/Garage storage. Keep any legacy volumes and backups intact until an
+explicit data migration has been performed. The old SQL is retained under
+`services/api/legacy-postgres` for reference.
 
 ## References
 
-- [Portainer: create a Git stack and set environment variables](https://docs.portainer.io/user/docker/stacks/add)
-- [Portainer: relative-volume support](https://docs.portainer.io/advanced/relative-paths)
-- [Cloudflare: tunnel tokens](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/)
-- [Cloudflare: tunnel run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/)
+- [Portainer Git stacks and environment variables](https://docs.portainer.io/user/docker/stacks/add)
+- [Cloudflare tunnel tokens](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/)
+- [SQLite WAL and backup considerations](https://www.sqlite.org/wal.html)

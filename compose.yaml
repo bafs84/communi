@@ -1,88 +1,36 @@
+# Local stack; add --profile tunnel to connect Cloudflare. See docs/DEPLOYMENT.md.
 name: communi
 
 services:
-  postgres:
-    image: postgres:16.10-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-communi}
-      POSTGRES_USER: ${POSTGRES_USER:-communi}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
-      - ./services/api/migrations:/migrations:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-communi} -d ${POSTGRES_DB:-communi}"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    networks: [private]
-
-  garage:
-    build:
-      context: ./infra/garage
-    restart: unless-stopped
-    environment:
-      GARAGE_RPC_SECRET_FILE: /run/secrets/garage_rpc_secret
-      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env}
-      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env}
-      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET:-communi-private}
-      GARAGE_NODE_CAPACITY: ${GARAGE_NODE_CAPACITY:-100GB}
-    secrets: [garage_rpc_secret]
-    volumes:
-      - ./infra/garage/garage.toml:/etc/garage.toml:ro
-      - garage-meta:/var/lib/garage/meta
-      - garage-data:/var/lib/garage/data
-    healthcheck:
-      test: ["CMD", "/garage-healthcheck.sh"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 10s
-    networks: [private]
-
-  migrate:
-    image: postgres:16.10-alpine
-    restart: "no"
-    environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-    command:
-      - sh
-      - -ec
-      - >-
-        psql -h postgres -U ${POSTGRES_USER:-communi} -d ${POSTGRES_DB:-communi}
-        -v ON_ERROR_STOP=1 -f /migrations/001_initial.sql
-        && psql -h postgres -U ${POSTGRES_USER:-communi} -d ${POSTGRES_DB:-communi}
-        -v ON_ERROR_STOP=1 -f /migrations/002_ckw_tools.sql
-    volumes:
-      - ./services/api/migrations:/migrations:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks: [private]
-
   ckw-engine:
     build:
       context: ./services/ckw-engine
     restart: unless-stopped
     environment:
-      CKW_INTERNAL_TOKEN_FILE: /run/secrets/ckw_internal_token
+      CKW_INTERNAL_TOKEN_FILE: /run/communi/internal_token
       CKW_TMP_DIR: /tmp/communi-ckw
       CKW_PV_PLANT_CACHE_PATH: /tmp/communi-ckw/public-data/electricity-production-plants.csv
-    secrets: [ckw_internal_token]
+    volumes:
+      - internal-secrets:/run/communi
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import Request,urlopen; from pathlib import Path; urlopen(Request('http://127.0.0.1:8000/internal/health', headers={'Authorization': 'Bearer '+Path('/run/communi/internal_token').read_text().strip()}), timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     tmpfs:
       - /tmp/communi-ckw:size=512m,mode=0700
     read_only: true
     security_opt: ["no-new-privileges:true"]
-    networks: [private]
+    networks: [private, egress]
 
   api:
     build:
       context: ./services/api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-communi}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-communi}
+      DATA_DIR: /data
+      DATABASE_URL: sqlite:///data/communi.sqlite
       HOST: 0.0.0.0
       PORT: 4100
       CORS_ORIGINS: ${CORS_ORIGINS:-https://communi.ch,https://www.communi.ch,https://ckw.communi.ch}
@@ -95,28 +43,19 @@ services:
       MAINTENANCE_INTERVAL_SECONDS: ${MAINTENANCE_INTERVAL_SECONDS:-300}
       GUEST_TMP_DIR: /tmp/communi-guests
       CKW_COOKIE_SECURE: ${CKW_COOKIE_SECURE:-true}
-      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:?set AUTH0_AUDIENCE in .env}
-      AUTH0_ISSUER_BASE_URL: ${AUTH0_ISSUER_BASE_URL:?set AUTH0_ISSUER_BASE_URL in .env}
+      AUTH0_AUDIENCE: ${PUBLIC_AUTH0_AUDIENCE:-https://api.communi.ch}
+      AUTH0_ISSUER_BASE_URL: https://${PUBLIC_AUTH0_DOMAIN:?set PUBLIC_AUTH0_DOMAIN}/
       CKW_ENGINE_URL: http://ckw-engine:8000
-      S3_ENDPOINT: http://garage:3900
-      S3_REGION: ${S3_REGION:-garage}
-      S3_BUCKET: ${S3_BUCKET:-communi-private}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_FORCE_PATH_STYLE: "true"
-      DATA_ENCRYPTION_KEY_FILE: /run/secrets/data_encryption_key
-      CKW_INTERNAL_TOKEN_FILE: /run/secrets/ckw_internal_token
+      CKW_INTERNAL_TOKEN_FILE: /run/communi/internal_token
       RUST_LOG: ${RUST_LOG:-communi_backend_api=info,tower_http=info}
-    secrets: [data_encryption_key, ckw_internal_token]
+    volumes:
+      - communi-data:/data
+      - internal-secrets:/run/communi:ro
     tmpfs:
       - /tmp/communi-guests:size=256m,mode=0700
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      garage:
-        condition: service_healthy
       ckw-engine:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:4100/health/ready"]
       interval: 10s
@@ -132,20 +71,18 @@ services:
       context: .
       dockerfile: infra/gateway/Dockerfile
       args:
-        PUBLIC_AUTH0_DOMAIN: ${PUBLIC_AUTH0_DOMAIN:?set PUBLIC_AUTH0_DOMAIN in .env}
-        PUBLIC_AUTH0_CLIENT_ID: ${PUBLIC_AUTH0_CLIENT_ID:?set PUBLIC_AUTH0_CLIENT_ID in .env}
-        PUBLIC_AUTH0_AUDIENCE: ${PUBLIC_AUTH0_AUDIENCE:?set PUBLIC_AUTH0_AUDIENCE in .env}
+        PUBLIC_AUTH0_DOMAIN: ${PUBLIC_AUTH0_DOMAIN:?set PUBLIC_AUTH0_DOMAIN in Portainer}
+        PUBLIC_AUTH0_CLIENT_ID: ${PUBLIC_AUTH0_CLIENT_ID:?set PUBLIC_AUTH0_CLIENT_ID in Portainer}
+        PUBLIC_AUTH0_AUDIENCE: ${PUBLIC_AUTH0_AUDIENCE:-https://api.communi.ch}
         PUBLIC_AUTH0_REDIRECT_URI: ${PUBLIC_AUTH0_REDIRECT_URI:-https://communi.ch/raum/}
         PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-}
     restart: unless-stopped
     environment:
       PUBLIC_AUTH0_DOMAIN: ${PUBLIC_AUTH0_DOMAIN}
       PUBLIC_AUTH0_CLIENT_ID: ${PUBLIC_AUTH0_CLIENT_ID}
-      PUBLIC_AUTH0_AUDIENCE: ${PUBLIC_AUTH0_AUDIENCE}
+      PUBLIC_AUTH0_AUDIENCE: ${PUBLIC_AUTH0_AUDIENCE:-https://api.communi.ch}
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-}
       PUBLIC_CKW_MEMBER_URL: ${PUBLIC_CKW_PORTAL_URL:-https://communi.ch/raum/ckw/}
-    ports:
-      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     depends_on:
       api:
         condition: service_healthy
@@ -157,18 +94,21 @@ services:
     read_only: true
     tmpfs: [/var/cache/nginx, /var/run]
     security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     networks: [private, edge]
 
   cloudflared:
     image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.8.2}
     restart: unless-stopped
-    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/cloudflared_token"]
-    secrets: [cloudflared_token]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TUNNEL_TOKEN:-}
     depends_on:
       gateway:
         condition: service_healthy
-    profiles: [tunnel]
     security_opt: ["no-new-privileges:true"]
+    profiles: [tunnel]
     networks: [edge]
 
 networks:
@@ -178,16 +118,5 @@ networks:
   egress:
 
 volumes:
-  postgres-data:
-  garage-meta:
-  garage-data:
-
-secrets:
-  data_encryption_key:
-    file: ./secrets/data_encryption_key
-  ckw_internal_token:
-    file: ./secrets/ckw_internal_token
-  garage_rpc_secret:
-    file: ./secrets/garage_rpc_secret
-  cloudflared_token:
-    file: ./secrets/cloudflared_token
+  communi-data:
+  internal-secrets:

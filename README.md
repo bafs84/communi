@@ -2,7 +2,7 @@
 
 This repository is the deployable Communi.ch monorepo. It combines the public
 Astro site, the Auth0-protected portal, the CKW LEG/vZEV/billing workspace, the
-Rust ownership and storage API, and the unchanged Python calculation package.
+Rust API with embedded SQLite and private local file storage, and the Python calculation package.
 
 ## Layout
 
@@ -10,7 +10,7 @@ Rust ownership and storage API, and the unchanged Python calculation package.
 - `apps/ckw-web` — React workspace for LEG, vZEV/battery and vZEV billing.
 - `services/api` — public Rust API for authentication, storage and privacy.
 - `services/ckw-engine` — private FastAPI calculation engine and CKW library.
-- `infra` — database, Garage, gateway and Cloudflare Tunnel configuration.
+- `infra` — gateway configuration; Cloudflare Tunnel is included in Compose.
 - `docs` — project documentation and deployment/privacy runbooks.
 
 The pre-monorepo folders remain on disk as ignored rollback references. They are
@@ -20,7 +20,6 @@ not Docker build contexts and are not part of the deployed repository.
 
 ```bash
 cp .env.example .env
-./scripts/bootstrap-secrets.sh
 docker compose up --build
 ```
 
@@ -46,5 +45,6 @@ the enforceable retention model is documented in
 
 For a Git-backed Docker Standalone stack with Cloudflare Tunnel included, use
 `compose.portainer.yaml` and follow [the Portainer guide](docs/PORTAINER.md).
-All deployment values, including secrets, are entered in Portainer. No local
-`.env`, secret files or host bind mounts are required by this stack.
+Only Auth0 account values and the Cloudflare Tunnel token are entered in Portainer.
+Internal keys are generated once and stored in persistent Docker volumes. No
+PostgreSQL, S3 service, host bind mounts or manual key generation are required.

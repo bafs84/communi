@@ -23,6 +23,9 @@ __pycache__/
 runtime/
 backups/
 *.duckdb
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Preserved pre-monorepo source checkouts and local/customer data.
 /backend/

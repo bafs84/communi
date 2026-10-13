@@ -1,2 +1,0 @@
-FROM postgres:16.10-alpine
-COPY migrations /migrations

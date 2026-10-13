@@ -9,7 +9,6 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use aws_sdk_s3::{primitives::ByteStream, Client as S3Client};
 use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
@@ -27,12 +26,12 @@ use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use sqlx::{PgPool, Row};
+use sqlx::{SqlitePool, Row};
 use tokio::sync::Mutex;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{upsert_user, AuthVerifier};
+use crate::{upsert_user, AuthVerifier, storage::{LocalStorage, encryption_key}};
 
 const CSRF_HEADER: &str = "x-csrf-token";
 const CONFIG_SCHEMA_VERSION: i32 = 1;
@@ -142,8 +141,8 @@ impl DataCrypto {
 
 #[derive(Clone)]
 pub(crate) struct CkwState {
-    db: PgPool,
-    s3: S3Client,
+    db: SqlitePool,
+    storage: LocalStorage,
     auth: AuthVerifier,
     http: reqwest::Client,
     crypto: DataCrypto,
@@ -162,13 +161,22 @@ pub(crate) struct CkwState {
 }
 
 impl CkwState {
-    pub(crate) fn from_env(
-        db: PgPool,
-        s3: S3Client,
+    pub(crate) async fn from_env(
+        db: SqlitePool,
+        storage: LocalStorage,
         auth: AuthVerifier,
-        bucket: String,
+        data_dir: PathBuf,
     ) -> Result<Self, String> {
-        let crypto_secret = read_secret("DATA_ENCRYPTION_KEY", "DATA_ENCRYPTION_KEY_FILE")?;
+        let crypto_secret = if env::var("DATA_ENCRYPTION_KEY").is_ok() || env::var("DATA_ENCRYPTION_KEY_FILE").is_ok() {
+            read_secret("DATA_ENCRYPTION_KEY", "DATA_ENCRYPTION_KEY_FILE")?
+        } else {
+            let key_path = data_dir.join("secrets/data_encryption_key");
+            if !key_path.exists() && sqlx::query_scalar::<_, i64>("select count(*) from ckw_projects")
+                .fetch_one(&db).await.map_err(|_| "could not inspect existing encrypted projects")? > 0 {
+                return Err("encryption key is missing for existing projects; restore it from backup".into());
+            }
+            encryption_key(&key_path)?
+        };
         let engine_token = read_secret("CKW_INTERNAL_TOKEN", "CKW_INTERNAL_TOKEN_FILE")?;
         let guest_tmp_dir = PathBuf::from(
             env::var("GUEST_TMP_DIR").unwrap_or_else(|_| "/tmp/communi-guests".to_string()),
@@ -178,14 +186,14 @@ impl CkwState {
             .map_err(|error| format!("could not create guest tmp directory: {error}"))?;
         Ok(Self {
             db,
-            s3,
+            storage,
             auth,
             http: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(180))
                 .build()
                 .map_err(|error| format!("could not build CKW HTTP client: {error}"))?,
             crypto: DataCrypto::from_secret(&crypto_secret)?,
-            bucket,
+            bucket: "local".into(),
             engine_url: env::var("CKW_ENGINE_URL")
                 .unwrap_or_else(|_| "http://ckw-engine:8000".to_string())
                 .trim_end_matches('/')
@@ -218,7 +226,7 @@ impl CkwState {
         {
             return false;
         }
-        if self.s3.head_bucket().bucket(&self.bucket).send().await.is_err() {
+        if !self.storage.ready().await {
             return false;
         }
         let response = self
@@ -257,7 +265,7 @@ impl CkwState {
             r#"
             select id, object_bucket, object_key, attempts
             from storage_deletion_outbox
-            where next_attempt_at <= now()
+            where julianday(next_attempt_at) <= julianday('now')
             order by id
             limit 100
             "#,
@@ -267,10 +275,9 @@ impl CkwState {
         let mut deleted = 0_u64;
         for row in rows {
             let id: i64 = row.try_get("id").map_err(|_| CkwError::Internal)?;
-            let bucket: String = row.try_get("object_bucket").map_err(|_| CkwError::Internal)?;
             let key: String = row.try_get("object_key").map_err(|_| CkwError::Internal)?;
             let attempts: i32 = row.try_get("attempts").map_err(|_| CkwError::Internal)?;
-            match self.s3.delete_object().bucket(bucket).key(key).send().await {
+            match self.storage.delete(&key).await {
                 Ok(_) => {
                     sqlx::query("delete from storage_deletion_outbox where id = $1")
                         .bind(id)
@@ -281,7 +288,7 @@ impl CkwState {
                 Err(_) => {
                     let delay_minutes = 2_i64.pow((attempts + 1).min(8) as u32);
                     sqlx::query(
-                        "update storage_deletion_outbox set attempts = attempts + 1, next_attempt_at = now() + ($2 * interval '1 minute') where id = $1",
+                        "update storage_deletion_outbox set attempts = attempts + 1, next_attempt_at = strftime('%Y-%m-%dT%H:%M:%f+00:00','now', '+' || $2 || ' minutes') where id = $1",
                     )
                     .bind(id)
                     .bind(delay_minutes)
@@ -1002,7 +1009,7 @@ async fn update_project_values(
             let result = sqlx::query(
                 r#"
                 update ckw_projects set name_ciphertext=$1, municipality_ciphertext=$2,
-                  config_ciphertext=$3, config_schema_version=$4, updated_at=now()
+                  config_ciphertext=$3, config_schema_version=$4, updated_at=strftime('%Y-%m-%dT%H:%M:%f+00:00','now')
                 where id=$5 and user_id=$6
                 "#,
             )
@@ -1282,15 +1289,7 @@ async fn store_project_file(
             let id = Uuid::new_v4();
             let object_key = format!("users/{user_id}/ckw/projects/{project_id}/uploads/{id}");
             let encrypted = state.crypto.encrypt(&bytes)?;
-            state
-                .s3
-                .put_object()
-                .bucket(&state.bucket)
-                .key(&object_key)
-                .body(ByteStream::from(encrypted))
-                .send()
-                .await
-                .map_err(|_| CkwError::Internal)?;
+            state.storage.put(&object_key, &encrypted).await.map_err(|_| CkwError::Internal)?;
             let inserted = sqlx::query(
                 r#"
                 insert into ckw_project_files (
@@ -1316,7 +1315,7 @@ async fn store_project_file(
             match inserted {
                 Ok(result) if result.rows_affected() == 1 => Ok((id, false)),
                 _ => {
-                    let _ = state.s3.delete_object().bucket(&state.bucket).key(&object_key).send().await;
+                    let _ = state.storage.delete(&object_key).await;
                     Err(CkwError::NotFound)
                 }
             }
@@ -1434,17 +1433,8 @@ async fn load_engine_project(
             .await?;
             let mut files = Vec::with_capacity(rows.len());
             for row in rows {
-                let bucket: String = row.try_get("object_bucket").map_err(|_| CkwError::Internal)?;
-                let key: String = row.try_get("object_key").map_err(|_| CkwError::Internal)?;
-                let object = state
-                    .s3
-                    .get_object()
-                    .bucket(bucket)
-                    .key(key)
-                    .send()
-                    .await
-                    .map_err(|_| CkwError::Internal)?;
-                let encrypted = object.body.collect().await.map_err(|_| CkwError::Internal)?.into_bytes();
+                    let key: String = row.try_get("object_key").map_err(|_| CkwError::Internal)?;
+                let encrypted = state.storage.get(&key).await.map_err(|_| CkwError::Internal)?;
                 files.push(EngineFile {
                     id: row.try_get("id").map_err(|_| CkwError::Internal)?,
                     original_filename: state.crypto.decrypt_text(
@@ -1747,15 +1737,7 @@ async fn store_result(
                 ));
             }
             let object_key = format!("users/{user_id}/ckw/projects/{project_id}/results/{id}");
-            state
-                .s3
-                .put_object()
-                .bucket(&state.bucket)
-                .key(&object_key)
-                .body(ByteStream::from(state.crypto.encrypt(bytes)?))
-                .send()
-                .await
-                .map_err(|_| CkwError::Internal)?;
+            state.storage.put(&object_key, &state.crypto.encrypt(bytes)?).await.map_err(|_| CkwError::Internal)?;
             let inserted = sqlx::query(
                 r#"
                 insert into ckw_results (
@@ -1781,7 +1763,7 @@ async fn store_result(
             match inserted {
                 Ok(result) if result.rows_affected() == 1 => Ok(id),
                 _ => {
-                    let _ = state.s3.delete_object().bucket(&state.bucket).key(&object_key).send().await;
+                    let _ = state.storage.delete(&object_key).await;
                     Err(CkwError::NotFound)
                 }
             }
@@ -1899,15 +1881,8 @@ async fn download_result(
             .fetch_optional(&state.db)
             .await?
             .ok_or(CkwError::NotFound)?;
-            let object = state
-                .s3
-                .get_object()
-                .bucket(row.try_get::<String, _>("object_bucket").map_err(|_| CkwError::Internal)?)
-                .key(row.try_get::<String, _>("object_key").map_err(|_| CkwError::Internal)?)
-                .send()
-                .await
-                .map_err(|_| CkwError::Internal)?;
-            let encrypted = object.body.collect().await.map_err(|_| CkwError::Internal)?.into_bytes();
+            let key: String = row.try_get("object_key").map_err(|_| CkwError::Internal)?;
+            let encrypted = state.storage.get(&key).await.map_err(|_| CkwError::Internal)?;
             (
                 state.crypto.decrypt_text(
                     row.try_get("filename_ciphertext").map_err(|_| CkwError::Internal)?,
@@ -2324,6 +2299,89 @@ async fn claim_guest_session(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    async fn persistent_test_state(root: &std::path::Path) -> CkwState {
+        let db = sqlx::sqlite::SqlitePoolOptions::new().max_connections(1)
+            .connect_with(sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(root.join("test.sqlite")).create_if_missing(true).foreign_keys(true)
+                .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)).await.unwrap();
+        sqlx::migrate!("./migrations").run(&db).await.unwrap();
+        let config = crate::Config {
+            database_url: String::new(), data_dir: root.into(), host: "127.0.0.1".into(), port: 0,
+            cors_origins: vec![], max_csv_bytes: 1024,
+            auth0_audience: "test".into(), auth0_issuer_base_url: "https://example.invalid/".into(),
+        };
+        let auth = AuthVerifier {
+            config: Arc::new(config), http: reqwest::Client::new(),
+            jwks: Arc::new(tokio::sync::RwLock::new(None)),
+        };
+        CkwState {
+            db, storage: LocalStorage::new(root.join("objects")).unwrap(), auth,
+            http: reqwest::Client::new(),
+            crypto: DataCrypto::from_secret(&encryption_key(&root.join("secrets/key")).unwrap()).unwrap(),
+            bucket: "local".into(), engine_url: "http://example.invalid".into(), engine_token: "test".into(),
+            max_file_bytes: 1024, guest_max_bytes: 4096, registered_max_bytes: 4096,
+            guest_idle: Duration::minutes(60), guest_max_age: Duration::hours(24),
+            guest_tmp_dir: root.join("guests"), cookie_name: "test".into(), cookie_secure: true,
+            guests: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    #[tokio::test]
+    async fn sqlite_registered_storage_survives_restart_enforces_ownership_and_deletes() {
+        let root = std::env::temp_dir().join(format!("communi-persistence-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        let auth = crate::AuthUser { sub: "owner".into(), email: Some("owner@example.invalid".into()) };
+        let owner = upsert_user(&state.db, &auth).await.unwrap();
+        assert_eq!(owner, upsert_user(&state.db, &auth).await.unwrap());
+        let other = upsert_user(&state.db, &crate::AuthUser { sub: "other".into(), email: None }).await.unwrap();
+        let actor = Actor::Registered { user_id: owner };
+        let project = create_project_for_actor(&state, &actor, "Private project", "Sursee", default_config()).await.unwrap();
+        let id = Uuid::parse_str(&project.project_id).unwrap();
+        let (file, duplicate) = store_project_file(&state, &actor, id, "private.csv", "solar", "text/csv", b"private CSV".to_vec()).await.unwrap();
+        assert!(!duplicate);
+        assert_eq!(store_project_file(&state, &actor, id, "private.csv", "solar", "text/csv", b"private CSV".to_vec()).await.unwrap(), (file, true));
+        store_result(&state, &actor, id, "export", "private-result.csv", "text/csv", b"private result").await.unwrap();
+        assert_eq!(registered_usage(&state, owner).await.unwrap(), 25);
+        let key: String = sqlx::query_scalar("select object_key from ckw_project_files").fetch_one(&state.db).await.unwrap();
+        assert_ne!(state.storage.get(&key).await.unwrap(), b"private CSV");
+        assert!(matches!(load_engine_project(&state, &Actor::Registered { user_id: other }, id).await, Err(CkwError::NotFound)));
+        assert!(matches!(delete_project_for_actor(&state, &Actor::Registered { user_id: other }, id).await, Err(CkwError::NotFound)));
+        assert!(matches!(store_result(&state, &actor, id, "export", "oversize", "text/plain", &[0; 4096]).await, Err(CkwError::QuotaExceeded(_))));
+        state.db.close().await;
+        drop(state);
+        let state = persistent_test_state(&root).await;
+        let loaded = load_engine_project(&state, &actor, id).await.unwrap();
+        assert_eq!(loaded.name, "Private project");
+        assert_eq!(loaded.files[0].bytes, b"private CSV");
+        let result_key: String = sqlx::query_scalar("select object_key from ckw_results").fetch_one(&state.db).await.unwrap();
+        assert_eq!(state.crypto.decrypt(&state.storage.get(&result_key).await.unwrap()).unwrap(), b"private result");
+        delete_project_for_actor(&state, &actor, id).await.unwrap();
+        assert_eq!(state.process_deletion_outbox().await.unwrap(), 2);
+        assert!(!root.join("objects").join(key).exists());
+        assert!(!root.join("objects").join(result_key).exists());
+        assert_eq!(registered_usage(&state, owner).await.unwrap(), 0);
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn sqlite_deletion_outbox_retries_failed_local_deletions() {
+        let root = std::env::temp_dir().join(format!("communi-outbox-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        std::fs::create_dir(root.join("objects/blocked")).unwrap();
+        sqlx::query("insert into storage_deletion_outbox (object_bucket,object_key) values ('local','blocked')").execute(&state.db).await.unwrap();
+        assert_eq!(state.process_deletion_outbox().await.unwrap(), 0);
+        let attempts: i32 = sqlx::query_scalar("select attempts from storage_deletion_outbox").fetch_one(&state.db).await.unwrap();
+        assert_eq!(attempts, 1);
+        std::fs::remove_dir(root.join("objects/blocked")).unwrap();
+        sqlx::query("update storage_deletion_outbox set next_attempt_at='2000-01-01'").execute(&state.db).await.unwrap();
+        assert_eq!(state.process_deletion_outbox().await.unwrap(), 1);
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn application_encryption_uses_random_nonces_and_round_trips() {

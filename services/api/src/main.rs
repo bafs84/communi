@@ -5,13 +5,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use aws_config::BehaviorVersion;
-use aws_credential_types::Credentials;
-use aws_sdk_s3::{
-    config::{Builder as S3ConfigBuilder, Region},
-    primitives::ByteStream,
-    Client as S3Client,
-};
 use axum::{
     extract::{Multipart, Query, State},
     http::{
@@ -33,19 +26,22 @@ use jsonwebtoken::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous}, SqlitePool, Row};
+use std::str::FromStr;
+use storage::LocalStorage;
 use thiserror::Error;
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 mod ckw;
+mod storage;
 
 #[derive(Clone)]
 struct AppState {
     config: Arc<Config>,
-    db: PgPool,
-    s3: S3Client,
+    db: SqlitePool,
+    storage: LocalStorage,
     auth: AuthVerifier,
 }
 
@@ -71,12 +67,7 @@ struct Config {
     max_csv_bytes: usize,
     auth0_audience: String,
     auth0_issuer_base_url: String,
-    s3_endpoint: String,
-    s3_region: String,
-    s3_bucket: String,
-    s3_access_key_id: String,
-    s3_secret_access_key: String,
-    s3_force_path_style: bool,
+    data_dir: std::path::PathBuf,
 }
 
 #[derive(Debug, Error)]
@@ -320,11 +311,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = Arc::new(Config::from_env()?);
-    let db = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&config.database_url)
-        .await?;
-    let s3 = build_s3_client(&config).await;
+    std::fs::create_dir_all(&config.data_dir)?;
+    let options = SqliteConnectOptions::from_str(&config.database_url)?
+        .create_if_missing(true)
+        .foreign_keys(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Full)
+        .busy_timeout(Duration::from_secs(10));
+    let db = SqlitePoolOptions::new().max_connections(5).connect_with(options).await?;
+    sqlx::migrate!("./migrations").run(&db).await?;
+    let storage = LocalStorage::new(config.data_dir.join("objects"))?;
 
     let auth = AuthVerifier {
         config: Arc::clone(&config),
@@ -334,15 +330,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         config: Arc::clone(&config),
         db: db.clone(),
-        s3: s3.clone(),
+        storage: storage.clone(),
         auth: auth.clone(),
     };
     let ckw_state = ckw::CkwState::from_env(
         db,
-        s3,
+        storage,
         auth,
-        config.s3_bucket.clone(),
-    )?;
+        config.data_dir.clone(),
+    ).await?;
 
     cleanup_expired_uploads(&state.db).await?;
     if env::args().any(|arg| arg == "maintenance" || arg == "cleanup-expired") {
@@ -396,7 +392,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 impl Config {
     fn from_env() -> Result<Self, String> {
         Ok(Self {
-            database_url: required_env("DATABASE_URL")?,
+            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| format!("sqlite://{}/communi.sqlite", env::var("DATA_DIR").unwrap_or_else(|_| "/data".into()))),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: env::var("PORT")
                 .unwrap_or_else(|_| "4100".to_string())
@@ -415,40 +411,13 @@ impl Config {
                 .map_err(|_| "MAX_CSV_BYTES must be a number".to_string())?,
             auth0_audience: required_env("AUTH0_AUDIENCE")?,
             auth0_issuer_base_url: required_env("AUTH0_ISSUER_BASE_URL")?,
-            s3_endpoint: required_env("S3_ENDPOINT")?,
-            s3_region: env::var("S3_REGION").unwrap_or_else(|_| "garage".to_string()),
-            s3_bucket: required_env("S3_BUCKET")?,
-            s3_access_key_id: required_env("S3_ACCESS_KEY_ID")?,
-            s3_secret_access_key: required_env("S3_SECRET_ACCESS_KEY")?,
-            s3_force_path_style: env::var("S3_FORCE_PATH_STYLE")
-                .unwrap_or_else(|_| "true".to_string())
-                .eq_ignore_ascii_case("true"),
+            data_dir: env::var("DATA_DIR").unwrap_or_else(|_| "/data".into()).into(),
         })
     }
 }
 
 fn required_env(name: &str) -> Result<String, String> {
     env::var(name).map_err(|_| format!("missing required environment variable {name}"))
-}
-
-async fn build_s3_client(config: &Config) -> S3Client {
-    let credentials = Credentials::new(
-        config.s3_access_key_id.clone(),
-        config.s3_secret_access_key.clone(),
-        None,
-        None,
-        "garage-env",
-    );
-    let shared_config = aws_config::defaults(BehaviorVersion::latest())
-        .endpoint_url(config.s3_endpoint.clone())
-        .region(Region::new(config.s3_region.clone()))
-        .credentials_provider(credentials)
-        .load()
-        .await;
-    let s3_config = S3ConfigBuilder::from(&shared_config)
-        .force_path_style(config.s3_force_path_style)
-        .build();
-    S3Client::from_conf(s3_config)
 }
 
 fn build_cors(config: &Config) -> CorsLayer {
@@ -580,29 +549,17 @@ async fn handle_upload(
             expires_at: None,
         });
     }
-    let expires_at = None;
+    let expires_at: Option<DateTime<Utc>> = None;
     let digest = hex_digest(&bytes);
     let object_key = object_key(upload_id, user.as_ref());
-
-    state
-        .s3
-        .put_object()
-        .bucket(&state.config.s3_bucket)
-        .key(&object_key)
-        .body(ByteStream::from(bytes))
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::error!(?error, "failed to store CSV object");
-            ApiError::Storage
-        })?;
 
     let user_id = match user.as_ref() {
         Some(auth) => Some(upsert_user(&state.db, auth).await?),
         None => None,
     };
+    state.storage.put(&object_key, &bytes).await.map_err(|_| ApiError::Storage)?;
 
-    let inserted_id = sqlx::query_scalar::<_, String>(
+    let inserted_id = sqlx::query_scalar::<_, Uuid>(
         r#"
         insert into workspace_uploads (
           id,
@@ -627,7 +584,7 @@ async fn handle_upload(
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
           $11, $12, $13, $14, $15, $16, $17
         )
-        returning id::text
+        returning id
         "#,
     )
     .bind(upload_id)
@@ -636,7 +593,7 @@ async fn handle_upload(
     .bind(mime_type)
     .bind(byte_size)
     .bind(digest)
-    .bind(&state.config.s3_bucket)
+    .bind("local")
     .bind(&object_key)
     .bind(parsed.row_count)
     .bind(parsed.total_kwh)
@@ -648,10 +605,17 @@ async fn handle_upload(
     .bind(parsed.last_timestamp.map(|value| value.to_rfc3339()))
     .bind(expires_at)
     .fetch_one(&state.db)
-    .await?;
+    .await;
+    let inserted_id = match inserted_id {
+        Ok(id) => id,
+        Err(error) => {
+            let _ = state.storage.delete(&object_key).await;
+            return Err(error.into());
+        }
+    };
 
     Ok(UploadResult {
-        upload_id: inserted_id,
+        upload_id: inserted_id.to_string(),
         row_count: parsed.row_count,
         total_kwh: round2(parsed.total_kwh),
         first_timestamp: parsed.first_timestamp.map(|value| value.to_rfc3339()),
@@ -729,7 +693,7 @@ async fn upsert_profile(
           interested_in_community = excluded.interested_in_community,
           visible_interest = excluded.visible_interest,
           contact_email = excluded.contact_email,
-          updated_at = now()
+          updated_at = strftime('%Y-%m-%dT%H:%M:%f+00:00','now')
         "#,
     )
     .bind(&user_id)
@@ -763,22 +727,12 @@ async fn clear_uploads(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let auth = state.auth.require_user(&headers).await?;
     let user_id = upsert_user(&state.db, &auth).await?;
-    let keys = sqlx::query(
-        "select object_key from workspace_uploads where user_id = $1",
-    )
-    .bind(&user_id)
-    .fetch_all(&state.db)
-    .await?;
-
-    sqlx::query("delete from workspace_uploads where user_id = $1")
-        .bind(&user_id)
-        .execute(&state.db)
-        .await?;
-
-    for row in keys {
-        let key: String = row.try_get("object_key")?;
-        delete_object_best_effort(&state.s3, &state.config.s3_bucket, &key).await;
-    }
+    let mut transaction = state.db.begin().await?;
+    sqlx::query("insert into storage_deletion_outbox (object_bucket, object_key) select object_bucket, object_key from workspace_uploads where user_id=$1 on conflict do nothing")
+        .bind(user_id).execute(&mut *transaction).await?;
+    sqlx::query("delete from workspace_uploads where user_id=$1")
+        .bind(user_id).execute(&mut *transaction).await?;
+    transaction.commit().await?;
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }
@@ -800,14 +754,15 @@ async fn add_question(
     let user_id = upsert_user(&state.db, &auth).await?;
     let row = sqlx::query(
         r#"
-        insert into workspace_questions (user_id, municipality_key, body)
-        values ($1, $2, $3)
-        returning id::text, municipality_key, body, created_at
+        insert into workspace_questions (user_id, municipality_key, body, id)
+        values ($1, $2, $3, $4)
+        returning id, municipality_key, body, created_at
         "#,
     )
     .bind(&user_id)
     .bind(trim_opt(input.municipality_key.as_deref()))
     .bind(body)
+    .bind(Uuid::new_v4())
     .fetch_one(&state.db)
     .await?;
 
@@ -844,7 +799,7 @@ async fn municipality_signals(
     }
 
     let registered_count = sqlx::query_scalar::<_, i64>(
-        "select count(*)::bigint from workspace_profiles where municipality_key = $1",
+        "select count(*) from workspace_profiles where municipality_key = $1",
     )
     .bind(&municipality_key)
     .fetch_one(&state.db)
@@ -964,25 +919,26 @@ impl AuthVerifier {
     }
 }
 
-pub(crate) async fn upsert_user(pool: &PgPool, auth: &AuthUser) -> Result<Uuid, ApiError> {
+pub(crate) async fn upsert_user(pool: &SqlitePool, auth: &AuthUser) -> Result<Uuid, ApiError> {
     sqlx::query_scalar::<_, Uuid>(
         r#"
-        insert into app_users (auth0_sub, auth0_email)
-        values ($1, $2)
+        insert into app_users (auth0_sub, auth0_email, id)
+        values ($1, $2, $3)
         on conflict (auth0_sub) do update
           set auth0_email = coalesce(excluded.auth0_email, app_users.auth0_email),
-              updated_at = now()
+              updated_at = strftime('%Y-%m-%dT%H:%M:%f+00:00','now')
         returning id
         "#,
     )
     .bind(&auth.sub)
     .bind(&auth.email)
+    .bind(Uuid::new_v4())
     .fetch_one(pool)
     .await
     .map_err(ApiError::from)
 }
 
-async fn fetch_profile(pool: &PgPool, user_id: &Uuid) -> Result<Option<Profile>, ApiError> {
+async fn fetch_profile(pool: &SqlitePool, user_id: &Uuid) -> Result<Option<Profile>, ApiError> {
     let row = sqlx::query("select * from workspace_profiles where user_id = $1")
         .bind(user_id)
         .fetch_optional(pool)
@@ -990,10 +946,10 @@ async fn fetch_profile(pool: &PgPool, user_id: &Uuid) -> Result<Option<Profile>,
     row.map(profile_from_row).transpose()
 }
 
-async fn fetch_uploads(pool: &PgPool, user_id: &Uuid) -> Result<Vec<UploadSummary>, ApiError> {
+async fn fetch_uploads(pool: &SqlitePool, user_id: &Uuid) -> Result<Vec<UploadSummary>, ApiError> {
     let rows = sqlx::query(
         r#"
-        select id::text, file_name, mime_type, row_count, total_kwh,
+        select id, file_name, mime_type, row_count, total_kwh,
           daylight_consumption_percent, solar_proxy_percent,
           detected_timestamp_column, detected_consumption_column,
           first_timestamp, last_timestamp,
@@ -1020,9 +976,9 @@ async fn fetch_uploads(pool: &PgPool, user_id: &Uuid) -> Result<Vec<UploadSummar
     rows.into_iter().map(upload_from_row).collect()
 }
 
-async fn fetch_questions(pool: &PgPool, user_id: &Uuid) -> Result<Vec<Question>, ApiError> {
+async fn fetch_questions(pool: &SqlitePool, user_id: &Uuid) -> Result<Vec<Question>, ApiError> {
     let rows = sqlx::query(
-        "select id::text, municipality_key, body, created_at from workspace_questions where user_id = $1 order by created_at desc",
+        "select id, municipality_key, body, created_at from workspace_questions where user_id = $1 order by created_at desc",
     )
     .bind(user_id)
     .fetch_all(pool)
@@ -1030,7 +986,7 @@ async fn fetch_questions(pool: &PgPool, user_id: &Uuid) -> Result<Vec<Question>,
     rows.into_iter().map(question_from_row).collect()
 }
 
-fn profile_from_row(row: sqlx::postgres::PgRow) -> Result<Profile, ApiError> {
+fn profile_from_row(row: sqlx::sqlite::SqliteRow) -> Result<Profile, ApiError> {
     Ok(Profile {
         municipality_key: row.try_get("municipality_key")?,
         municipality_label: row.try_get("municipality_label")?,
@@ -1052,11 +1008,11 @@ fn profile_from_row(row: sqlx::postgres::PgRow) -> Result<Profile, ApiError> {
     })
 }
 
-fn upload_from_row(row: sqlx::postgres::PgRow) -> Result<UploadSummary, ApiError> {
+fn upload_from_row(row: sqlx::sqlite::SqliteRow) -> Result<UploadSummary, ApiError> {
     let detected_consumption_column: Option<String> = row.try_get("detected_consumption_column")?;
     let series_kind = series_kind_from_stored_column(detected_consumption_column.as_deref());
     Ok(UploadSummary {
-        id: row.try_get("id")?,
+        id: row.try_get::<Uuid, _>("id")?.to_string(),
         file_name: row.try_get("file_name")?,
         mime_type: row.try_get("mime_type")?,
         row_count: row.try_get("row_count")?,
@@ -1082,13 +1038,13 @@ fn pending_ingestion_message() -> String {
 
 fn analyse_csv_for_ingestion(
     bytes: &[u8],
-    file_name: &str,
+    _file_name: &str,
 ) -> (ParsedCsv, String, Option<String>) {
     match std::str::from_utf8(bytes) {
         Ok(raw) => match analyse_csv(raw) {
             Ok(parsed) => (parsed, "ingested".to_string(), None),
-            Err(error) => {
-                tracing::info!(?error, file_name, "stored CSV pending automatic ingestion");
+            Err(_) => {
+                tracing::info!("stored CSV pending automatic ingestion");
                 (
                     ParsedCsv::pending_ingestion(),
                     "pending_ingestion".to_string(),
@@ -1096,10 +1052,8 @@ fn analyse_csv_for_ingestion(
                 )
             }
         },
-        Err(error) => {
+        Err(_) => {
             tracing::info!(
-                ?error,
-                file_name,
                 "stored non-UTF-8 CSV pending automatic ingestion"
             );
             (
@@ -1111,9 +1065,9 @@ fn analyse_csv_for_ingestion(
     }
 }
 
-fn question_from_row(row: sqlx::postgres::PgRow) -> Result<Question, ApiError> {
+fn question_from_row(row: sqlx::sqlite::SqliteRow) -> Result<Question, ApiError> {
     Ok(Question {
-        id: row.try_get("id")?,
+        id: row.try_get::<Uuid, _>("id")?.to_string(),
         municipality_key: row.try_get("municipality_key")?,
         body: row.try_get("body")?,
         created_at: row.try_get("created_at")?,
@@ -1446,11 +1400,11 @@ fn trim_opt(value: Option<&str>) -> Option<String> {
 }
 
 async fn cleanup_expired_uploads(
-    pool: &PgPool,
+    pool: &SqlitePool,
 ) -> Result<(), ApiError> {
     let mut transaction = pool.begin().await?;
-    let rows = sqlx::query_scalar::<_, String>(
-        "select id::text from workspace_uploads where user_id is null or (expires_at is not null and expires_at < now())",
+    let rows = sqlx::query_scalar::<_, Uuid>(
+        "select id from workspace_uploads where user_id is null or (expires_at is not null and julianday(expires_at) < julianday('now'))",
     )
     .fetch_all(&mut *transaction)
     .await?;
@@ -1459,26 +1413,20 @@ async fn cleanup_expired_uploads(
         insert into storage_deletion_outbox (object_bucket, object_key)
         select object_bucket, object_key
         from workspace_uploads
-        where user_id is null or (expires_at is not null and expires_at < now())
+        where user_id is null or (expires_at is not null and julianday(expires_at) < julianday('now'))
         on conflict (object_bucket, object_key) do nothing
         "#,
     )
     .execute(&mut *transaction)
     .await?;
     sqlx::query(
-        "delete from workspace_uploads where user_id is null or (expires_at is not null and expires_at < now())",
+        "delete from workspace_uploads where user_id is null or (expires_at is not null and julianday(expires_at) < julianday('now'))",
     )
     .execute(&mut *transaction)
     .await?;
     transaction.commit().await?;
     tracing::info!("removed {} legacy anonymous or expired uploads", rows.len());
     Ok(())
-}
-
-async fn delete_object_best_effort(s3: &S3Client, bucket: &str, key: &str) {
-    if let Err(error) = s3.delete_object().bucket(bucket).key(key).send().await {
-        tracing::warn!(?error, key, "failed to delete Garage object");
-    }
 }
 
 #[cfg(test)]
