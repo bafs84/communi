@@ -34,6 +34,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
   const [invoiceDate, setInvoiceDate] = useState(todayIso());
   const [paymentTerms, setPaymentTerms] = useState("Zahlbar gemäss vZEV-Vereinbarung");
   const [year, setYear] = useState("");
+  const [tariffTier, setTariffTier] = useState("");
   const [pvTariff, setPvTariff] = useState("");
   const [pvTariffMethod, setPvTariffMethod] = useState("80%-pauschale");
   const [peakAllocationMode, setPeakAllocationMode] = useState("community_peak_share");
@@ -77,7 +78,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
 
   async function generateInvoices(event: FormEvent) {
     event.preventDefault();
-    if (csvFiles.length === 0) return;
+    if (csvFiles.length === 0 || !tariffTier) return;
 
     setBusy(true);
     setError("");
@@ -91,6 +92,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
       body.append("pv_tariff_method", pvTariffMethod);
       body.append("peak_allocation_mode", peakAllocationMode);
       body.append("no_vat", String(noVat));
+      body.append("tariff_tier", tariffTier);
       if (year) body.append("year", year);
       if (pvTariff) body.append("pv_tariff_rp_per_kwh", pvTariff);
       if (feedInEnergyRate) body.append("feed_in_energy_rp_per_kwh", feedInEnergyRate);
@@ -201,7 +203,10 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
                 type="file"
                 accept=".csv,text/csv"
                 multiple
-                onChange={(event) => setCsvFiles(Array.from(event.target.files ?? []))}
+                onChange={(event) => {
+                  setCsvFiles(Array.from(event.target.files ?? []));
+                  setTariffTier("");
+                }}
               />
               <span>
                 {csvFiles.length > 0
@@ -230,6 +235,15 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
             <label>
               Zahlungsfrist
               <input value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)} />
+            </label>
+            <label>
+              Tarifklasse laut CKW-Vertrag
+              <select value={tariffTier} required onChange={(event) => setTariffTier(event.target.value)}>
+                <option value="" disabled>Bitte laut Vertrag auswählen</option>
+                <option value="lt_50000">Bis 50'000 kWh/Jahr</option>
+                <option value="gt_50000">Über 50'000 kWh/Jahr (LG7)</option>
+              </select>
+              <small>Gilt für alle Monate dieses Batches. Der Monatsverbrauch ändert die Tarifklasse nicht.</small>
             </label>
             <label>
               Tarifjahr
@@ -332,7 +346,7 @@ export function BillingWorkspace({ onNavigate, onGenerated }: BillingWorkspacePr
                 Gemeinschaft bleibt bei allen Varianten gleich; nur die interne Aufteilung ändert sich.
               </p>
             </div>
-            <button type="submit" disabled={csvFiles.length === 0 || busy}>
+            <button type="submit" disabled={csvFiles.length === 0 || !tariffTier || busy}>
               <Download size={16} />
               {busy ? "Monats-Batch wird erstellt..." : "Editierbare Rechnungen herunterladen"}
             </button>

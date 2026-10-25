@@ -14,6 +14,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
 from .vzev_invoice import allocate_ckw_invoice_totals
+from .billing_tariff import invoice_tariff_label
 
 
 GREEN = "1F6F64"
@@ -191,6 +192,7 @@ def create_community_overview_docx(
     subtitle.add_run(
         f"{issuer} · {result['period_start']} bis {result['period_end']} · Tarifjahr {result['tariff_year']}"
     )
+    document.add_paragraph(f"CKW-Vertragstarif: {invoice_tariff_label(result)}")
 
     _add_kpis(
         document,
@@ -304,6 +306,10 @@ def create_community_overview_docx(
         participant_price_rows,
     )
     document.add_heading("Kostenaufteilung", level=2)
+    document.add_paragraph(
+        "CKW-Kostenanteil: Bezugskosten inkl. MWST und Rundung. "
+        "Rückliefergutschriften werden separat bei der Auszahlung an die PV-Betreiber berücksichtigt."
+    )
     _add_table(
         document,
         ["Teilnehmer", "CKW-Kostenanteil", "Lokale PV", "Rechnung total"],

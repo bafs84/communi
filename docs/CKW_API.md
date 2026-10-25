@@ -102,9 +102,31 @@ Operationen: `summary`, `timeseries`, `plants`, `calculation`, `residual-solar`,
 `vzev-word-report`, `excel-export`, `billing-invoices`.
 Parameter entsprechen dem CKW-Arbeitsbereich und werden unter `parameters`
 übergeben, z. B. `tariffYear`, `networkDiscount`, `legEnergyPriceRpPerKwh`,
-`fixedPvTariffRpPerKwh`, `kind`, `resolution`. Für `billing-invoices` wird die
-Abrechnungskonfiguration in `config.billing` benötigt. Die Berechnung läuft
+`fixedPvTariffRpPerKwh`, `kind`, `resolution`. Für `billing-invoices` ist bei jedem
+Generierungsaufruf eine bestätigte Tarifklasse in `parameters.tariffTier` nötig:
+`lt_50000` oder `gt_50000`. Fehlende Werte, `auto` und unbekannte Klassen werden
+mit HTTP 400 abgewiesen. Die Klasse gilt für alle Monate des Batches; die
+Monatswerte ändern sie nicht. Weitere Abrechnungsparameter werden ebenfalls
+unter `parameters` übergeben. Die Berechnung läuft
 synchron; Binärantworten enthalten `X-Result-Id` und `Content-Disposition`.
+
+```bash
+python3 scripts/communi-api.py upload PROJECT_UUID --kind billing /pfad/monat.csv
+python3 scripts/communi-api.py run PROJECT_UUID billing-invoices --parameters '{"tariffTier":"gt_50000","year":2026}' --output /privat/rechnungen.zip
+```
+
+Das Formular `POST /api/vzev/invoices` verwendet dafür `tariff_tier`. Bestehende
+Clients müssen dieses Feld künftig mitsenden. Die Rechnungs-CLI verlangt
+`--tariff-tier lt_50000` oder `--tariff-tier gt_50000`. Eine in `config.billing`
+gespeicherte frühere Auswahl ersetzt die Bestätigung im neuen Aufruf nicht.
+
+Monats-JSON enthalten `selected_tariff_tier`, `tariff_year`,
+`tariff_basis_source` und `tariff_selection_source: "contract_confirmed"`.
+Der Batch-Index enthält zusätzlich die Liste `tariff_years` und dieselben
+Angaben je Periode. Word-Ausgaben kennzeichnen die Klasse als „vertraglich
+gewählt“. „CKW-Kostenanteil“ bezeichnet die Bezugskosten inklusive MWST und
+Rundung; Rückliefergutschriften werden separat berücksichtigt. Bestehende
+Exporte bleiben erhalten; neue Berechnungen erzeugen neue Ergebnisse.
 
 Fehler: `400` ungültige Eingabe, `401` fehlender/ungültiger/abgelaufener/
 widerrufener Schlüssel, `403` fehlendes Recht oder Projektbindung verletzt,

@@ -28,6 +28,8 @@ _SRC_DIR = Path(__file__).resolve().parents[1]
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
+from ckw_script.billing_tariff import INVOICE_TARIFF_TIERS
+
 try:
     from ckw_script.pricing_import_2025 import (
         calculate_standard_product_reference,
@@ -1117,10 +1119,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Examples:\n"
-            "  python3 src/ckw_script/vzev_invoice.py data/example.csv\n"
-            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --format json\n"
-            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --local-energy-factor 0.8\n"
-            "  python3 src/ckw_script/vzev_invoice.py data/example.csv "
+            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --tariff-tier gt_50000\n"
+            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --tariff-tier gt_50000 --format json\n"
+            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --tariff-tier gt_50000 --local-energy-factor 0.8\n"
+            "  python3 src/ckw_script/vzev_invoice.py data/example.csv --tariff-tier gt_50000 "
             "--peak-allocation-mode individual_peak_pro_rata"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
@@ -1137,12 +1139,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--tariff-tier",
-        choices=("auto", "lt_50000", "gt_50000"),
-        default="auto",
-        help=(
-            "Tariff tier override. 'auto' uses annual_kwh_for_tariff when provided, "
-            "otherwise annualizes short files and falls back to measured file kWh for long files."
-        ),
+        choices=INVOICE_TARIFF_TIERS,
+        required=True,
+        help="Confirmed CKW contract tariff for this invoice; monthly consumption does not select the tier.",
     )
     parser.add_argument(
         "--annual-kwh-for-tariff",

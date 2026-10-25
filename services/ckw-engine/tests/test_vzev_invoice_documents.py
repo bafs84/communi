@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timedelta
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
@@ -46,6 +48,7 @@ def _document_text(content: bytes) -> str:
 
 def test_invoice_bundle_contains_one_editable_word_file_per_consumer() -> None:
     bundle = create_invoice_bundle(
+        tariff_tier="gt_50000",
         csv_content=_monthly_vzev_csv(),
         original_filename="monthly.csv",
         issuer="vZEV Test",
@@ -128,7 +131,7 @@ def test_invoice_api_returns_downloadable_zip(tmp_path) -> None:
     response = TestClient(app).post(
         "/api/vzev/invoices",
         files={"csv_file": ("monthly.csv", _monthly_vzev_csv(), "text/csv")},
-        data={"issuer": "vZEV Test", "invoice_date": "2026-04-01"},
+        data={"issuer": "vZEV Test", "invoice_date": "2026-04-01", "tariff_tier": "gt_50000"},
     )
 
     assert response.status_code == 200
@@ -141,6 +144,7 @@ def test_invoice_api_returns_downloadable_zip(tmp_path) -> None:
 
 def test_invoice_batch_packages_months_chronologically_with_a_batch_index() -> None:
     bundle = create_invoice_batch(
+        tariff_tier="gt_50000",
         csv_files=[
             InvoiceSource(content=_monthly_vzev_csv(4), original_filename="april.csv"),
             InvoiceSource(content=_monthly_vzev_csv(3), original_filename="march.csv"),
@@ -198,7 +202,7 @@ def test_invoice_api_accepts_multiple_monthly_files(tmp_path) -> None:
             ("csv_file", ("march.csv", _monthly_vzev_csv(3), "text/csv")),
             ("csv_file", ("april.csv", _monthly_vzev_csv(4), "text/csv")),
         ],
-        data={"issuer": "vZEV Test", "invoice_date": "2026-05-01", "payment_terms": ""},
+        data={"issuer": "vZEV Test", "invoice_date": "2026-05-01", "payment_terms": "", "tariff_tier": "gt_50000"},
     )
 
     assert response.status_code == 200
@@ -221,6 +225,7 @@ def test_invoice_api_accepts_multiple_monthly_files(tmp_path) -> None:
 def test_invoice_batch_rejects_duplicate_periods() -> None:
     with pytest.raises(ValueError, match="Abrechnungsperiode 202603 wurde bereits"):
         create_invoice_batch(
+            tariff_tier="gt_50000",
             csv_files=[
                 InvoiceSource(content=_monthly_vzev_csv(3), original_filename="march-a.csv"),
                 InvoiceSource(content=_monthly_vzev_csv(3), original_filename="march-b.csv"),
@@ -242,6 +247,7 @@ def test_invoice_api_rejects_the_whole_batch_when_one_file_is_invalid(tmp_path) 
             ("csv_file", ("march.csv", _monthly_vzev_csv(3), "text/csv")),
             ("csv_file", ("broken.csv", b"not-a-ckw-export", "text/csv")),
         ],
+        data={"tariff_tier": "gt_50000"},
     )
 
     assert response.status_code == 400
@@ -255,6 +261,7 @@ def test_march_sample_reconciles_to_official_ckw_net_total() -> None:
         / "vZEV_Allmendstrasse_4_Sursee_Einzelmesswerte_monatlich_plausibel_01.03.2026_01.04.2026.csv"
     )
     bundle = create_invoice_bundle(
+        tariff_tier="gt_50000",
         csv_content=source.read_bytes(),
         original_filename=source.name,
         issuer="vZEV Allmendstrasse 4 Sursee",
@@ -295,6 +302,7 @@ def test_real_march_to_july_batch_preserves_monthly_reconciliation() -> None:
     ]
 
     bundle = create_invoice_batch(
+        tariff_tier="gt_50000",
         csv_files=sources,
         issuer="vZEV Allmendstrasse 4 Sursee",
         invoice_date="2026-08-01",
@@ -312,3 +320,81 @@ def test_real_march_to_july_batch_preserves_monthly_reconciliation() -> None:
         assert batch_index["multi_month_overview"] in archive.namelist()
         march_index = json.loads(archive.read("vzev-202603/_index.json"))
         assert march_index["net_ckw_payable_chf"] == 3043.15
+
+
+def _seasonal_monthly_csv(month: int) -> bytes:
+    """Full months whose annualized imports fall on opposite sides of 50 MWh."""
+    lines = _monthly_vzev_csv(month).decode("cp1252").splitlines()[:6]
+    current = datetime(2026, month, 1) + timedelta(minutes=15)
+    end = datetime(2026, month + 1, 1)
+    load = Decimal("2.5") if month == 4 else Decimal("0.25")
+    while current <= end:
+        lines.append(
+            f"{current:%d.%m.%Y %H:%M};0;W;{load};W;0;W;{load * Decimal('0.6')};W;{load * Decimal('0.4')};W"
+        )
+        current += timedelta(minutes=15)
+    return "\n".join(lines).encode("cp1252")
+
+
+@pytest.mark.parametrize("tier,peak_rate,grid_rate,reactive_rate", [
+    ("gt_50000", "8.00", "4.40", "4.50"),
+    ("lt_50000", "1.50", "6.00", "0.00"),
+])
+def test_confirmed_tariff_stays_fixed_across_high_and_low_consumption_months(tier, peak_rate, grid_rate, reactive_rate):
+    bundle = create_invoice_batch(
+        csv_files=[InvoiceSource(_seasonal_monthly_csv(month), f"synthetic-{month}.csv") for month in (4, 5, 6)],
+        tariff_tier=tier,
+        invoice_date="2026-07-01",
+    )
+    with ZipFile(BytesIO(bundle.content)) as archive:
+        batch = json.loads(archive.read("_batch_index.json"))
+        assert batch["selected_tariff_tier"] == tier
+        assert batch["tariff_selection_source"] == "contract_confirmed"
+        assert batch["tariff_years"] == [2026]
+        assert "vertraglich gewählt" in _document_text(archive.read(batch["multi_month_overview"]))
+        for period in batch["periods"]:
+            assert period["selected_tariff_tier"] == tier
+            assert period["tariff_year"] == 2026
+            assert period["tariff_basis_source"] == f"explicit_{tier}"
+            month = period["period_key"]
+            index = json.loads(archive.read(f"vzev-{month}/_index.json"))
+            assert index["selected_tariff_tier"] == tier
+            assert index["tariff_selection_source"] == "contract_confirmed"
+            overview = _document_text(archive.read(index["community_overview"]))
+            assert f"{peak_rate} CHF/kW-Monat" in overview
+            assert f"{grid_rate} Rp./kWh" in overview
+            assert f"{reactive_rate} Rp./kvarh" in overview
+            assert "vertraglich gewählt" in overview
+            assert "Rückliefergutschriften werden separat" in overview
+            participant = _document_text(archive.read(index["invoices"][0]["path"]))
+            assert "CKW-Vertragstarif" in participant
+            assert "vertraglich gewählt" in participant
+
+
+@pytest.mark.parametrize("tier", [None, "", "auto", "unknown", 12])
+def test_unconfirmed_tariff_is_rejected_before_temporary_files(monkeypatch, tier):
+    def unexpected_directory(*args, **kwargs):
+        pytest.fail("invalid tariff must be rejected before creating temporary files")
+    monkeypatch.setattr("ckw_script.vzev_invoice_bundle.TemporaryDirectory", unexpected_directory)
+    for builder, sources in [
+        (create_invoice_bundle, {"csv_content": _monthly_vzev_csv(), "original_filename": "month.csv"}),
+        (create_invoice_batch, {"csv_files": [InvoiceSource(_monthly_vzev_csv(), "month.csv")]}),
+    ]:
+        with pytest.raises(ValueError, match="Tarifklasse laut CKW-Vertrag"):
+            builder(tariff_tier=tier, **sources)
+
+
+@pytest.mark.parametrize("tier", [None, "auto", "unknown"])
+def test_invoice_api_requires_contract_tariff(tmp_path, tier):
+    app = create_app(PortalSettings(
+        portal_db_path=str(tmp_path / "portal.duckdb"),
+        pv_plant_cache_path=str(tmp_path / "plants.csv"),
+        frontend_dist_path=str(tmp_path / "missing-frontend"),
+    ))
+    response = TestClient(app).post(
+        "/api/vzev/invoices",
+        files={"csv_file": ("month.csv", _monthly_vzev_csv(), "text/csv")},
+        data={} if tier is None else {"tariff_tier": tier},
+    )
+    assert response.status_code == 400
+    assert "Tarifklasse laut CKW-Vertrag" in response.json()["detail"]

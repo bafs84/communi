@@ -11,6 +11,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
+from .billing_tariff import TARIFF_LABELS, require_invoice_tariff_tier
 
 
 GREEN = "1F6F64"
@@ -125,9 +126,12 @@ def create_multi_month_overview_docx(
     period_keys: tuple[str, ...],
     participants: list[dict[str, Any]],
     issuer: str,
+    tariff_tier: str,
+    tariff_years: tuple[int, ...],
 ) -> bytes:
     """Create one readable table per participant across every batch month."""
 
+    tariff_tier = require_invoice_tariff_tier(tariff_tier)
     document = Document()
     section = document.sections[0]
     section.orientation = WD_ORIENT.LANDSCAPE
@@ -152,12 +156,17 @@ def create_multi_month_overview_docx(
     subtitle.add_run(
         f"{issuer} · {_period_label(period_keys[0])} bis {_period_label(period_keys[-1])}"
     )
+    document.add_paragraph(
+        f"CKW-Vertragstarif: {TARIFF_LABELS[tariff_tier]} (vertraglich gewählt) · "
+        f"Tarifjahre: {', '.join(str(year) for year in tariff_years)}"
+    )
     explanation = document.add_paragraph()
     explanation.add_run("Geld an PV").bold = True
     explanation.add_run(" zeigt die interne Vergütung für lokal genutzte PV-Energie. ")
     explanation.add_run("Geld an CKW").bold = True
     explanation.add_run(
-        " zeigt den externen CKW-Kostenanteil inklusive MWST und Rechnungsabgleich. "
+        " zeigt die Bezugskosten inklusive MWST und Rechnungsabgleich. "
+        "Rückliefergutschriften werden separat bei der Auszahlung an die PV-Betreiber berücksichtigt. "
         "Beide Beträge ergeben das Total des Teilnehmers."
     )
 

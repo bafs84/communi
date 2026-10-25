@@ -14,6 +14,7 @@ from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from .vzev_invoice import DEFAULT_VAT_RATE, calculate_vzev_invoices, parse_vzev_csv
+from .billing_tariff import require_invoice_tariff_tier
 from .vzev_invoice_documents import (
     _build_pv_tariff_config,
     _period_key,
@@ -59,7 +60,7 @@ def create_invoice_bundle(
     payment_terms: str = "Zahlbar gemäss vZEV-Vereinbarung",
     invoice_prefix: str = "VZEV",
     year: int | None = None,
-    tariff_tier: str = "auto",
+    tariff_tier: str | None = None,
     local_energy_factor: Decimal = Decimal("0.80"),
     pv_tariff_rp_per_kwh: Decimal | None = None,
     pv_tariff_method: str = "80%-pauschale",
@@ -76,6 +77,7 @@ def create_invoice_bundle(
 ) -> InvoiceBundle:
     """Create a ZIP containing one editable DOCX invoice per participant."""
 
+    tariff_tier = require_invoice_tariff_tier(tariff_tier)
     if not csv_content:
         raise ValueError("Die hochgeladene CSV-Datei ist leer.")
 
@@ -175,7 +177,7 @@ def create_invoice_batch(
     payment_terms: str = "Zahlbar gemäss vZEV-Vereinbarung",
     invoice_prefix: str = "VZEV",
     year: int | None = None,
-    tariff_tier: str = "auto",
+    tariff_tier: str | None = None,
     local_energy_factor: Decimal = Decimal("0.80"),
     pv_tariff_rp_per_kwh: Decimal | None = None,
     pv_tariff_method: str = "80%-pauschale",
@@ -192,6 +194,7 @@ def create_invoice_batch(
 ) -> InvoiceBatchBundle:
     """Validate monthly inputs and package all successful periods into one ZIP."""
 
+    tariff_tier = require_invoice_tariff_tier(tariff_tier)
     if not csv_files:
         raise ValueError("Es wurde keine CKW-Monatsdatei hochgeladen.")
 
@@ -264,6 +267,10 @@ def create_invoice_batch(
     period_summaries = [
         {
             "period_key": bundle.period_key,
+            "selected_tariff_tier": month_index["selected_tariff_tier"],
+            "tariff_year": month_index["tariff_year"],
+            "tariff_basis_source": month_index["tariff_basis_source"],
+            "tariff_selection_source": month_index["tariff_selection_source"],
             "source_file": month_index["source_file"],
             "directory": f"vzev-{bundle.period_key}",
             "invoice_count": month_index["invoice_count"],
@@ -325,6 +332,9 @@ def create_invoice_batch(
     )
     overview_filename = f"VZEV-{period_keys[0]}-bis-{period_keys[-1]}-mehrmonatsuebersicht.docx"
     batch_index = {
+        "selected_tariff_tier": tariff_tier,
+        "tariff_selection_source": "contract_confirmed",
+        "tariff_years": sorted({period["tariff_year"] for period in period_summaries}),
         "period_count": len(period_keys),
         "invoice_count": invoice_count,
         "multi_month_overview": overview_filename,
@@ -348,6 +358,8 @@ def create_invoice_batch(
                 period_keys=period_keys,
                 participants=participants,
                 issuer=issuer.strip() or "vZEV",
+                tariff_tier=tariff_tier,
+                tariff_years=tuple(batch_index["tariff_years"]),
             ),
         )
         batch_archive.writestr(

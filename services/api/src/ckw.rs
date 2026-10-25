@@ -1789,6 +1789,9 @@ async fn run_operation(
     parameters: Value,
 ) -> Result<Response, CkwError> {
     let actor = actor_from_headers(state, &headers, operation_creates_artifact(operation)).await?;
+    if operation == "billing-invoices" {
+        require_billing_tariff(parameters.get("tariffTier"))?;
+    }
     let project = load_engine_project(state, &actor, project_id).await?;
     let engine = execute_engine(state, &project, operation, parameters).await?;
     if engine.filename.is_none() {
@@ -2194,6 +2197,15 @@ async fn update_battery_consumers(
     Ok(json_bytes_response(engine.body))
 }
 
+fn require_billing_tariff(value: Option<&Value>) -> Result<(), CkwError> {
+    match value.and_then(Value::as_str) {
+        Some("lt_50000" | "gt_50000") => Ok(()),
+        _ => Err(CkwError::BadRequest(
+            "Bitte die Tarifklasse laut CKW-Vertrag auswählen. Sie gilt für alle Monate des Rechnungs-Batches; automatische Tarifwahl ist für Rechnungen nicht zulässig.".into(),
+        )),
+    }
+}
+
 async fn billing_invoices(
     State(state): State<CkwState>,
     headers: AccessHeaders,
@@ -2227,6 +2239,7 @@ async fn billing_invoices(
             parameters.insert(key.to_string(), parsed);
         }
     }
+    require_billing_tariff(parameters.get("tariffTier"))?;
     if uploaded.is_empty() {
         return Err(CkwError::BadRequest("at least one billing CSV is required".to_string()));
     }
@@ -2419,6 +2432,44 @@ async fn claim_guest_session(
 mod tests {
     use super::*;
     use tower::ServiceExt;
+
+    #[test]
+    fn billing_accepts_only_confirmed_contract_tariffs() {
+        assert!(require_billing_tariff(None).is_err());
+        for value in [json!(null), json!(""), json!("auto"), json!("unknown"), json!(42)] {
+            assert!(require_billing_tariff(Some(&value)).is_err());
+        }
+        for value in [json!("lt_50000"), json!("gt_50000")] {
+            assert!(require_billing_tariff(Some(&value)).is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn billing_rejects_unconfirmed_tariffs_without_creating_projects() {
+        let root = std::env::temp_dir().join(format!("communi-billing-tariff-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        let response = create_guest_session(State(state.clone()), AccessHeaders::default()).await.unwrap();
+        let cookie = response.headers().get(SET_COOKIE).unwrap().to_str().unwrap().split(';').next().unwrap().to_owned();
+        let session = response_json(response).await;
+        let app = router(state.clone());
+        for tier in [None, Some("auto"), Some("unknown")] {
+            let mut body = "--billing\r\nContent-Disposition: form-data; name=\"csv_file\"; filename=\"synthetic.csv\"\r\nContent-Type: text/csv\r\n\r\nnot parsed before confirmation\r\n".to_string();
+            if let Some(tier) = tier {
+                body.push_str(&format!("--billing\r\nContent-Disposition: form-data; name=\"tariff_tier\"\r\n\r\n{tier}\r\n"));
+            }
+            body.push_str("--billing--\r\n");
+            let response = app.clone().oneshot(axum::http::Request::builder()
+                .method("POST").uri("/api/vzev/invoices")
+                .header(COOKIE, &cookie).header(CSRF_HEADER, session["csrfToken"].as_str().unwrap())
+                .header(CONTENT_TYPE, "multipart/form-data; boundary=billing")
+                .body(Body::from(body)).unwrap()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert!(state.guests.lock().await.values().all(|guest| guest.projects.is_empty()));
+        }
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     async fn test_key(state: &CkwState, user: Uuid, scopes: &[&str], project: Option<Uuid>) -> Value {
         let input = serde_json::from_value(json!({

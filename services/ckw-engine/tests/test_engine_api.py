@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -36,6 +37,20 @@ def _client(tmp_path) -> TestClient:
             )
         )
     )
+
+
+@pytest.mark.parametrize("tier", [None, "auto", "unknown", 42])
+def test_billing_operation_requires_confirmed_tariff_before_processing_uploads(tmp_path, tier):
+    response = _client(tmp_path).post(
+        "/internal/v1/execute",
+        headers={"Authorization": "Bearer test-token"},
+        data={"manifest": json.dumps({
+            "operation": "billing-invoices",
+            "parameters": {} if tier is None else {"tariffTier": tier},
+        })},
+    )
+    assert response.status_code == 400
+    assert "Tarifklasse laut CKW-Vertrag" in response.json()["detail"]
 
 
 def test_internal_endpoints_require_service_token(tmp_path) -> None:

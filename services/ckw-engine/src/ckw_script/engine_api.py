@@ -452,7 +452,7 @@ def _run_billing_operation(
         payment_terms=str(p.get("paymentTerms", "")),
         invoice_prefix=str(p.get("invoicePrefix", "VZEV")),
         year=_optional_int(p.get("year")),
-        tariff_tier=str(p.get("tariffTier", "auto")),
+        tariff_tier=p.get("tariffTier"),
         local_energy_factor=_decimal(p.get("localEnergyFactor"), "0.8"),
         pv_tariff_rp_per_kwh=_optional_decimal(p.get("pvTariffRpPerKwh")),
         pv_tariff_method=str(p.get("pvTariffMethod", "80%-pauschale")),

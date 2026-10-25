@@ -40,6 +40,11 @@ from ckw_script.vzev_invoice import (  # noqa: E402
 )
 from ckw_script.vzev_community_overview import create_community_overview_docx  # noqa: E402
 from ckw_script.vzev_feed_in import calculate_feed_in_compensation, select_feed_in_tariff  # noqa: E402
+from ckw_script.billing_tariff import (  # noqa: E402
+    INVOICE_TARIFF_TIERS,
+    invoice_tariff_label,
+    invoice_tariff_metadata,
+)
 
 PV_TARIFF_METHODS = (
     "80%-pauschale",
@@ -312,6 +317,8 @@ def render_invoice_markdown(
         ["Messpunkt", consumer["metering_code"]],
         ["Abrechnungsperiode", f"{result['period_start']} bis {result['period_end']}"],
         ["Tarifjahr", str(result["tariff_year"])],
+        ["CKW-Vertragstarif", invoice_tariff_label(result)],
+        ["CKW-Kostenanteil", "Bezugskosten inkl. MWST und Rundung; Rückliefergutschriften werden separat berücksichtigt."],
         ["Leistungspreis-Modell", _peak_mode_label(str(result["peak_allocation_mode"]))],
         [
             "Preis lokal genutzte PV-Energie",
@@ -541,6 +548,7 @@ def write_invoice_documents(
     pv_tariff: PvTariffConfig,
     document_format: str = "markdown",
 ) -> list[WrittenInvoice]:
+    tariff_metadata = invoice_tariff_metadata(result)
     if document_format not in {"docx", "markdown"}:
         raise ValueError("document_format must be 'docx' or 'markdown'")
 
@@ -594,6 +602,7 @@ def write_invoice_documents(
         )
 
     index = {
+        **tariff_metadata,
         "source_file": result["source_file"],
         "period_start": result["period_start"],
         "period_end": result["period_end"],
@@ -639,10 +648,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Beispiele:\n"
-            "  ckw invoices data/vzev/example.csv\n"
-            "  ckw invoices data/vzev/example.csv --issuer 'vZEV Allmendstrasse 4 Sursee'\n"
-            "  ckw invoices data/vzev/example.csv --pv-tariff-rp-per-kwh 9.6 --pv-tariff-method 80%-pauschale\n"
-            "  ckw invoices data/vzev/example.csv --peak-allocation-mode individual_peak_pro_rata"
+            "  ckw invoices data/vzev/example.csv --tariff-tier gt_50000\n"
+            "  ckw invoices data/vzev/example.csv --tariff-tier gt_50000 --issuer 'vZEV Allmendstrasse 4 Sursee'\n"
+            "  ckw invoices data/vzev/example.csv --tariff-tier gt_50000 --pv-tariff-rp-per-kwh 9.6 --pv-tariff-method 80%-pauschale\n"
+            "  ckw invoices data/vzev/example.csv --tariff-tier gt_50000 --peak-allocation-mode individual_peak_pro_rata"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -662,9 +671,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--year", type=int, help="Tarifjahr überschreiben. Standard: aus Zeitstempeln ableiten")
     parser.add_argument(
         "--tariff-tier",
-        choices=("auto", "lt_50000", "gt_50000"),
-        default="auto",
-        help="Tarifklasse für die zugrundeliegende Berechnung überschreiben",
+        choices=INVOICE_TARIFF_TIERS,
+        required=True,
+        help="Bestätigte Tarifklasse laut CKW-Vertrag; keine automatische Monats-Hochrechnung",
     )
     parser.add_argument(
         "--annual-kwh-for-tariff",
