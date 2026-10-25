@@ -41,6 +41,9 @@ Operational details are in [the deployment runbook](docs/DEPLOYMENT.md), and
 the enforceable retention model is documented in
 [the privacy lifecycle](docs/PRIVACY_AND_DATA_LIFECYCLE.md).
 
+For direct uploads, calculations and downloads using revocable personal API keys,
+see [the CKW API guide and command-line client](docs/CKW_API.md).
+
 ## Portainer deployment
 
 For a Git-backed Docker Standalone stack with Cloudflare Tunnel included, use

@@ -3,6 +3,8 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
+python3 -m unittest discover -s "$root_dir/scripts/tests"
+
 cd "$root_dir/apps/ckw-web"
 npm test
 npm run build

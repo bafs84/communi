@@ -55,6 +55,20 @@ Registered projects remain until the owning Auth0 subject deletes them:
 The registered quota is 1 GB per user. Changing that value is an operational
 policy change, not a calculation change.
 
+## Personal API access
+
+Registered users can issue expiring personal API keys from the portal. Each key
+inherits the owner's project ownership checks and storage quota, with separate
+read, write/upload, calculate and delete scopes and optional single-project
+binding. Only the SHA-256 digest of the random 256-bit secret is persisted;
+metadata includes the user-chosen key label, short prefix, scopes, expiry,
+revocation and last-use timestamps. Labels should not contain customer details.
+The secret is returned once and must be kept outside Git and logs. API keys
+cannot manage keys, access other accounts or use compatibility/workspace routes.
+Revocation blocks new requests; in-flight work may complete. Project deletion
+also removes any keys bound to that project. API file downloads use the same
+decryption and ownership boundary as result downloads.
+
 ## Logging and calculation isolation
 
 Application errors are reported to the Communi project on `errors.bsdata.ch`.

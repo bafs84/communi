@@ -1143,3 +1143,17 @@ aside select {
     padding: 14px 18px;
   }
 }
+:root .apiKeysPanel { max-width: 72rem; margin: 1.5rem auto; padding: 1.5rem; border: 1px solid #d8dfd8; border-radius: 12px; background: #fff; }
+.apiKeysPanel form { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.apiKeysPanel form > label, .apiKeySecret label { display: grid; gap: .4rem; }
+.apiKeysPanel label { color: #26332d; font-size: .95rem; }
+.apiKeysPanel input:not([type="checkbox"]), .apiKeysPanel select { padding: .6rem; max-width: 100%; background: #fff; color: #17201d; border: 1px solid #b5c2bb; }
+.apiKeysPanel fieldset { display: grid; gap: .75rem; width: 100%; padding: 1rem; border: 1px solid #d8dfd8; }
+.apiKeysPanel fieldset label { display: flex; flex-direction: row; gap: .5rem; align-items: center; }
+.apiKeysPanel input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: auto; margin: 0; padding: 0; flex-shrink: 0; }
+.apiKeySecret { margin-top: 1rem; padding: 1rem; background: #f1f6f2; overflow-wrap: anywhere; }
+.apiKeySecret input { width: min(100%, 40rem); }
+.apiKeySecret button { margin: .75rem .75rem 0 0; }
+.apiKeysList { list-style: none; padding: 0; }
+.apiKeysList li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #d8dfd8; }
+.apiKeysList p { margin: .35rem 0; }

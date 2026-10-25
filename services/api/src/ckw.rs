@@ -31,7 +31,7 @@ use tokio::sync::Mutex;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{upsert_user, AuthVerifier, storage::{LocalStorage, encryption_key}};
+use crate::{api_keys::{self, AccessHeaders, KeyState}, upsert_user, AuthVerifier, storage::{LocalStorage, encryption_key}};
 
 const CSRF_HEADER: &str = "x-csrf-token";
 const CONFIG_SCHEMA_VERSION: i32 = 1;
@@ -42,6 +42,8 @@ pub(crate) enum CkwError {
     BadRequest(String),
     #[error("unauthorized")]
     Unauthorized,
+    #[error("forbidden")]
+    Forbidden,
     #[error("not found")]
     NotFound,
     #[error("payload too large")]
@@ -59,6 +61,7 @@ impl IntoResponse for CkwError {
         let (status, message) = match self {
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized".to_string()),
+            Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden".to_string()),
             Self::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
             Self::PayloadTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "payload too large".to_string()),
             Self::QuotaExceeded(message) => (
@@ -498,12 +501,14 @@ struct BatteryConsumersInput {
 }
 
 pub(crate) fn router(state: CkwState) -> Router {
+    let keys = KeyState { db: state.db.clone(), auth: state.auth.clone() };
     Router::new()
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/v1/ckw/guest/session", post(create_guest_session).delete(delete_guest_session))
         .route("/v1/ckw/guest/claim", post(claim_guest_session))
         .route("/v1/ckw/municipalities", get(municipalities))
+        .route("/v1/ckw/capabilities", get(capabilities))
         .route("/v1/ckw/projects", get(list_projects).post(create_project_handler))
         .route(
             "/v1/ckw/projects/:project_id",
@@ -513,6 +518,8 @@ pub(crate) fn router(state: CkwState) -> Router {
             "/v1/ckw/projects/:project_id/uploads/:upload_kind",
             post(upload_files),
         )
+        .route("/v1/ckw/projects/:project_id/files", get(list_files))
+        .route("/v1/ckw/projects/:project_id/files/:file_id/download", get(download_file))
         .route(
             "/v1/ckw/projects/:project_id/files/:file_id",
             delete(delete_file_handler),
@@ -576,10 +583,24 @@ pub(crate) fn router(state: CkwState) -> Router {
         )
         .route("/api/vzev/invoices", post(billing_invoices))
         .with_state(state)
+        .merge(api_keys::router(keys.clone()))
+        .layer(axum::middleware::from_fn_with_state(keys, api_keys::authenticate))
 }
 
 async fn health_live() -> Json<Value> {
     Json(json!({ "ok": true }))
+}
+
+async fn capabilities(State(state): State<CkwState>, headers: AccessHeaders) -> Result<Json<Value>, CkwError> {
+    actor_from_headers(&state, &headers, false).await?;
+    Ok(Json(json!({
+        "version": 1,
+        "upload_kinds": ["solar", "consumption", "zev", "billing"],
+        "max_file_bytes": state.max_file_bytes,
+        "max_request_bytes": state.request_body_limit(),
+        "operations": ["summary", "timeseries", "plants", "calculation", "residual-solar", "optimization", "battery-placements", "load-shifting", "vzev-simulation", "vzev-simulation-csv", "vzev-tariff-comparison-csv", "leg-word-report", "vzev-word-report", "excel-export", "billing-invoices"],
+        "scopes": ["read", "write", "calculate", "delete"]
+    })))
 }
 
 async fn health_ready(State(state): State<CkwState>) -> Response {
@@ -653,9 +674,12 @@ fn guest_cookie(state: &CkwState, token: &str, max_age_seconds: i64) -> String {
 
 async fn actor_from_headers(
     state: &CkwState,
-    headers: &HeaderMap,
+    headers: &AccessHeaders,
     require_csrf: bool,
 ) -> Result<Actor, CkwError> {
+    if let Some(identity) = &headers.identity {
+        return Ok(Actor::Registered { user_id: identity.user_id });
+    }
     state.cleanup_guests().await;
     if let Some(user) = state
         .auth
@@ -685,7 +709,7 @@ async fn actor_from_headers(
     Ok(Actor::Guest { session_key: key })
 }
 
-async fn create_guest_session(State(state): State<CkwState>, headers: HeaderMap) -> Result<Response, CkwError> {
+async fn create_guest_session(State(state): State<CkwState>, headers: AccessHeaders) -> Result<Response, CkwError> {
     state.cleanup_guests().await;
     // Cookies are shared across tabs, CSRF storage is not. Resume the server
     // session instead of replacing its cookie whenever another tab opens.
@@ -743,7 +767,7 @@ async fn create_guest_session(State(state): State<CkwState>, headers: HeaderMap)
 
 async fn delete_guest_session(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
 ) -> Result<Response, CkwError> {
     let actor = actor_from_headers(&state, &headers, true).await?;
     let Actor::Guest { session_key } = actor else {
@@ -764,7 +788,7 @@ async fn delete_guest_session(
 
 async fn municipalities(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
 ) -> Result<Response, CkwError> {
     let _ = actor_from_headers(&state, &headers, false).await?;
     let response = state
@@ -867,7 +891,7 @@ async fn create_project_for_actor(
 
 async fn create_project_handler(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Json(input): Json<CreateProjectInput>,
 ) -> Result<Json<ProjectResponse>, CkwError> {
     let actor = actor_from_headers(&state, &headers, true).await?;
@@ -927,9 +951,12 @@ fn guest_project_response(project: &GuestProject) -> ProjectResponse {
 
 async fn list_projects(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
 ) -> Result<Json<Vec<ProjectResponse>>, CkwError> {
     let actor = actor_from_headers(&state, &headers, false).await?;
+    if let Some(project_id) = headers.identity.as_ref().and_then(|key| key.project_id) {
+        return Ok(Json(vec![project_response_for_actor(&state, &actor, project_id).await?]));
+    }
     let projects = match actor {
         Actor::Registered { user_id } => {
             let ids = sqlx::query_scalar::<_, Uuid>(
@@ -961,7 +988,7 @@ fn parse_uuid(value: &str) -> Result<Uuid, CkwError> {
 
 async fn get_project_handler(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
 ) -> Result<Json<ProjectResponse>, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -979,7 +1006,7 @@ async fn get_project_handler(
 
 async fn patch_project_handler(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
     Json(input): Json<PatchProjectInput>,
 ) -> Result<Json<ProjectResponse>, CkwError> {
@@ -1058,7 +1085,7 @@ async fn update_project_values(
 
 async fn delete_project_handler(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
 ) -> Result<Json<Value>, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -1142,9 +1169,80 @@ fn guest_usage(session: &GuestSession) -> usize {
         .sum()
 }
 
+async fn list_files(
+    State(state): State<CkwState>,
+    headers: AccessHeaders,
+    Path(project_id): Path<String>,
+) -> Result<Json<Vec<Value>>, CkwError> {
+    let project_id = parse_uuid(&project_id)?;
+    let actor = actor_from_headers(&state, &headers, false).await?;
+    project_response_for_actor(&state, &actor, project_id).await?;
+    let files = match actor {
+        Actor::Registered { .. } => {
+            let rows = sqlx::query("select id, original_filename_ciphertext, upload_kind, media_type, byte_size, sha256, created_at from ckw_project_files where project_id=$1 order by created_at, id")
+                .bind(project_id).fetch_all(&state.db).await?;
+            rows.into_iter().map(|row| {
+                let id: Uuid = row.try_get("id")?;
+                Ok(json!({
+                    "file_id": id,
+                    "original_filename": state.crypto.decrypt_text(row.try_get("original_filename_ciphertext")?)?,
+                    "upload_kind": row.try_get::<String, _>("upload_kind")?,
+                    "media_type": row.try_get::<String, _>("media_type")?,
+                    "byte_size": row.try_get::<i64, _>("byte_size")?,
+                    "sha256": row.try_get::<String, _>("sha256")?,
+                    "created_at": row.try_get::<DateTime<Utc>, _>("created_at")?,
+                    "download_url": format!("/v1/ckw/projects/{project_id}/files/{id}/download")
+                }))
+            }).collect::<Result<Vec<_>, CkwError>>()?
+        }
+        Actor::Guest { session_key } => {
+            let guests = state.guests.lock().await;
+            let project = guests.get(&session_key).and_then(|s| s.projects.get(&project_id)).ok_or(CkwError::NotFound)?;
+            project.files.iter().map(|file| json!({
+                "file_id": file.id, "original_filename": file.original_filename,
+                "upload_kind": file.upload_kind, "media_type": file.media_type,
+                "byte_size": file.byte_size, "sha256": file.sha256,
+                "download_url": format!("/v1/ckw/projects/{project_id}/files/{}/download", file.id)
+            })).collect()
+        }
+    };
+    Ok(Json(files))
+}
+
+async fn download_file(
+    State(state): State<CkwState>,
+    headers: AccessHeaders,
+    Path((project_id, file_id)): Path<(String, String)>,
+) -> Result<Response, CkwError> {
+    let project_id = parse_uuid(&project_id)?;
+    let file_id = parse_uuid(&file_id)?;
+    let actor = actor_from_headers(&state, &headers, false).await?;
+    let (filename, media_type, bytes) = match actor {
+        Actor::Registered { user_id } => {
+            let row = sqlx::query("select f.original_filename_ciphertext, f.media_type, f.object_key from ckw_project_files f join ckw_projects p on p.id=f.project_id where f.id=$1 and f.project_id=$2 and p.user_id=$3")
+                .bind(file_id).bind(project_id).bind(user_id).fetch_optional(&state.db).await?.ok_or(CkwError::NotFound)?;
+            let encrypted = state.storage.get(&row.try_get::<String, _>("object_key")?).await.map_err(|_| CkwError::Internal)?;
+            (state.crypto.decrypt_text(row.try_get("original_filename_ciphertext")?)?, row.try_get::<String, _>("media_type")?, state.crypto.decrypt(&encrypted)?)
+        }
+        Actor::Guest { session_key } => {
+            let file = {
+                let guests = state.guests.lock().await;
+                guests.get(&session_key).and_then(|s| s.projects.get(&project_id))
+                    .and_then(|p| p.files.iter().find(|f| f.id == file_id)).cloned().ok_or(CkwError::NotFound)?
+            };
+            (file.original_filename, file.media_type, tokio::fs::read(file.path).await.map_err(|_| CkwError::Internal)?)
+        }
+    };
+    Ok(Response::builder().status(StatusCode::OK)
+        .header(CONTENT_TYPE, media_type).header(CACHE_CONTROL, "private, no-store")
+        .header("x-content-type-options", "nosniff")
+        .header(CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", sanitize_filename(&filename)))
+        .body(Body::from(bytes)).map_err(|_| CkwError::Internal)?)
+}
+
 async fn upload_solar_files(
     state: State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     path: Path<String>,
     multipart: Multipart,
 ) -> Result<Json<Vec<Value>>, CkwError> {
@@ -1153,7 +1251,7 @@ async fn upload_solar_files(
 
 async fn upload_consumption_files(
     state: State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     path: Path<String>,
     multipart: Multipart,
 ) -> Result<Json<Vec<Value>>, CkwError> {
@@ -1162,7 +1260,7 @@ async fn upload_consumption_files(
 
 async fn upload_zev_files(
     state: State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     path: Path<String>,
     multipart: Multipart,
 ) -> Result<Json<Vec<Value>>, CkwError> {
@@ -1171,7 +1269,7 @@ async fn upload_zev_files(
 
 async fn upload_compat_files(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
     upload_kind: &str,
     multipart: Multipart,
@@ -1181,7 +1279,7 @@ async fn upload_compat_files(
 
 async fn upload_files(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, upload_kind)): Path<(String, String)>,
     multipart: Multipart,
 ) -> Result<Json<Vec<Value>>, CkwError> {
@@ -1190,7 +1288,7 @@ async fn upload_files(
 
 async fn upload_files_inner(
     state: &CkwState,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     project_id: Uuid,
     upload_kind: &str,
     mut multipart: Multipart,
@@ -1378,7 +1476,7 @@ async fn store_project_file(
 
 async fn delete_file_handler(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, file_id)): Path<(String, String)>,
 ) -> Result<Json<Value>, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -1631,9 +1729,9 @@ fn engine_operation_name(compatibility_name: &str) -> Option<&'static str> {
         "battery-placements" => Some("battery-placements"),
         "load-shifting" => Some("load-shifting"),
         "vzev-simulation" => Some("vzev-simulation"),
-        "vzev-simulation.csv" => Some("vzev-simulation-csv"),
-        "vzev-tariff-comparison.csv" => Some("vzev-tariff-comparison-csv"),
-        "word-report" => Some("leg-word-report"),
+        "vzev-simulation.csv" | "vzev-simulation-csv" => Some("vzev-simulation-csv"),
+        "vzev-tariff-comparison.csv" | "vzev-tariff-comparison-csv" => Some("vzev-tariff-comparison-csv"),
+        "word-report" | "leg-word-report" => Some("leg-word-report"),
         "vzev-word-report" => Some("vzev-word-report"),
         "excel-export" => Some("excel-export"),
         "billing-invoices" => Some("billing-invoices"),
@@ -1655,7 +1753,7 @@ fn operation_creates_artifact(operation: &str) -> bool {
 
 async fn compatibility_operation(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, operation)): Path<(String, String)>,
     Query(pairs): Query<Vec<(String, String)>>,
 ) -> Result<Response, CkwError> {
@@ -1672,17 +1770,20 @@ async fn compatibility_operation(
 
 async fn versioned_operation(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, operation)): Path<(String, String)>,
     Json(input): Json<OperationInput>,
 ) -> Result<Response, CkwError> {
+    if !input.parameters.is_object() && !input.parameters.is_null() {
+        return Err(CkwError::BadRequest("parameters must be a JSON object".into()));
+    }
     let operation = engine_operation_name(&operation).ok_or(CkwError::NotFound)?;
     run_operation(&state, headers, parse_uuid(&project_id)?, operation, input.parameters).await
 }
 
 async fn run_operation(
     state: &CkwState,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     project_id: Uuid,
     operation: &str,
     parameters: Value,
@@ -1815,7 +1916,7 @@ async fn store_result(
 
 async fn list_results(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
 ) -> Result<Json<Vec<ResultResponse>>, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -1878,7 +1979,7 @@ async fn list_results(
 
 async fn download_result(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, result_id)): Path<(String, String)>,
 ) -> Result<Response, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -1957,7 +2058,7 @@ async fn mutate_config_and_get_plants(
 
 async fn adopt_automatic_plants(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
 ) -> Result<Response, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -1986,7 +2087,7 @@ async fn adopt_automatic_plants(
 
 async fn add_cached_plant(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
     Json(input): Json<CachedPlantInput>,
 ) -> Result<Response, CkwError> {
@@ -2009,7 +2110,7 @@ async fn add_cached_plant(
 
 async fn add_manual_plant(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
     Json(input): Json<ManualPlantInput>,
 ) -> Result<Response, CkwError> {
@@ -2034,7 +2135,7 @@ async fn add_manual_plant(
 
 async fn clear_plant_selection(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path(project_id): Path<String>,
 ) -> Result<Response, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -2047,7 +2148,7 @@ async fn clear_plant_selection(
 
 async fn delete_selected_plant(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, plant_id)): Path<(String, String)>,
 ) -> Result<Response, CkwError> {
     let project_id = parse_uuid(&project_id)?;
@@ -2069,7 +2170,7 @@ async fn delete_selected_plant(
 
 async fn update_battery_consumers(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     Path((project_id, solar_file_id)): Path<(String, String)>,
     Json(input): Json<BatteryConsumersInput>,
 ) -> Result<Response, CkwError> {
@@ -2095,7 +2196,7 @@ async fn update_battery_consumers(
 
 async fn billing_invoices(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
     mut multipart: Multipart,
 ) -> Result<Response, CkwError> {
     let actor = actor_from_headers(&state, &headers, true).await?;
@@ -2215,7 +2316,7 @@ fn billing_parameter_name(value: &str) -> &str {
 
 async fn claim_guest_session(
     State(state): State<CkwState>,
-    headers: HeaderMap,
+    headers: AccessHeaders,
 ) -> Result<Response, CkwError> {
     let user = state
         .auth
@@ -2317,6 +2418,154 @@ async fn claim_guest_session(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tower::ServiceExt;
+
+    async fn test_key(state: &CkwState, user: Uuid, scopes: &[&str], project: Option<Uuid>) -> Value {
+        let input = serde_json::from_value(json!({
+            "name": "Integration test", "scopes": scopes, "project_id": project, "expires_in_days": 7
+        })).unwrap();
+        serde_json::to_value(api_keys::issue(&state.db, user, input).await.unwrap()).unwrap()
+    }
+
+    async fn key_request(app: &Router, method: &str, path: &str, token: &str, media_type: &str, body: Vec<u8>) -> Response {
+        app.clone().oneshot(axum::http::Request::builder().method(method).uri(path)
+            .header("Authorization", format!("Bearer {token}"))
+            .header(CONTENT_TYPE, media_type).body(Body::from(body)).unwrap()).await.unwrap()
+    }
+
+    async fn response_json(response: Response) -> Value {
+        serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn personal_api_keys_enforce_ownership_scopes_uploads_downloads_and_calculation() {
+        let root = std::env::temp_dir().join(format!("communi-api-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mut state = persistent_test_state(&root).await;
+        state.max_file_bytes = 3 * 1024 * 1024;
+        state.registered_max_bytes = 8 * 1024 * 1024;
+        let owner = upsert_user(&state.db, &crate::AuthUser { sub: "api-owner".into(), email: None }).await.unwrap();
+        let other = upsert_user(&state.db, &crate::AuthUser { sub: "api-other".into(), email: None }).await.unwrap();
+        let project = create_project_for_actor(&state, &Actor::Registered { user_id: owner }, "Owner", "Sursee", default_config()).await.unwrap();
+        let foreign = create_project_for_actor(&state, &Actor::Registered { user_id: other }, "Other", "Sursee", default_config()).await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        state.engine_url = format!("http://{}", listener.local_addr().unwrap());
+        let engine = Router::new().route("/internal/v1/execute", post(|headers: HeaderMap, mut upload: Multipart| async move {
+            assert_eq!(headers.get("Authorization").unwrap(), "Bearer test");
+            let mut found_file = false;
+            while let Some(field) = upload.next_field().await.unwrap() {
+                if field.name() == Some("manifest") {
+                    let manifest: Value = serde_json::from_str(&field.text().await.unwrap()).unwrap();
+                    assert_eq!(manifest["operation"], "summary");
+                } else if field.name() == Some("files") { found_file = true; }
+            }
+            assert!(found_file);
+            Json(json!({"calculated": true}))
+        }));
+        let engine_task = tokio::spawn(async move { axum::serve(listener, engine).await.unwrap() });
+        let app = router(state.clone()).layer(axum::extract::DefaultBodyLimit::max(state.request_body_limit()));
+        let key = test_key(&state, owner, &["read", "write", "calculate"], None).await;
+        let token = key["token"].as_str().unwrap();
+        let projects = response_json(key_request(&app, "GET", "/v1/ckw/projects", token, "application/json", vec![]).await).await;
+        assert_eq!(projects.as_array().unwrap().len(), 1);
+        assert_eq!(projects[0]["project_id"], project.project_id);
+        let created = key_request(&app, "POST", "/v1/ckw/projects", token, "application/json", br#"{"name":"From API","municipality":"Sursee"}"#.to_vec()).await;
+        assert_eq!(created.status(), StatusCode::OK);
+        let base = format!("/v1/ckw/projects/{}", project.project_id);
+        let csv = b"timestamp,kwh\n2026-01-01T00:00:00Z,1.5\n";
+        let mut upload = b"--test\r\nContent-Disposition: form-data; name=\"files\"; filename=\"synthetic.csv\"\r\nContent-Type: text/csv\r\n\r\n".to_vec();
+        upload.extend_from_slice(csv); upload.extend_from_slice(b"\r\n--test--\r\n");
+        let response = key_request(&app, "POST", &format!("{base}/uploads/consumption"), token, "multipart/form-data; boundary=test", upload).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let uploaded = response_json(response).await;
+        let files = response_json(key_request(&app, "GET", &format!("{base}/files"), token, "application/json", vec![]).await).await;
+        assert_eq!(files[0]["file_id"], uploaded[0]["file_id"]);
+        assert_eq!(files[0]["sha256"], content_digest(csv));
+        let response = key_request(&app, "GET", files[0]["download_url"].as_str().unwrap(), token, "application/json", vec![]).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(axum::body::to_bytes(response.into_body(), 1024).await.unwrap().as_ref(), csv);
+        let response = key_request(&app, "POST", &format!("{base}/operations/summary"), token, "application/json", b"{}".to_vec()).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response_json(response).await["calculated"], true);
+        assert_eq!(key_request(&app, "GET", &format!("/v1/ckw/projects/{}", foreign.project_id), token, "application/json", vec![]).await.status(), StatusCode::NOT_FOUND);
+        for (method, path) in [("DELETE", base.as_str()), ("GET", "/api/projects"), ("POST", "/v1/ckw/api-keys"), ("POST", "/v1/ckw/guest/session")] {
+            assert_eq!(key_request(&app, method, path, token, "application/json", b"{}".to_vec()).await.status(), StatusCode::FORBIDDEN);
+        }
+        let read = test_key(&state, owner, &["read"], None).await;
+        let reader = read["token"].as_str().unwrap();
+        for path in [format!("{base}/operations/summary"), format!("{base}/uploads/solar"), "/v1/ckw/projects".into()] {
+            assert_eq!(key_request(&app, "POST", &path, reader, "application/json", b"{}".to_vec()).await.status(), StatusCode::FORBIDDEN);
+        }
+        assert_eq!(key_request(&app, "GET", "/v1/ckw/projects", "communi_api_invalid", "application/json", vec![]).await.status(), StatusCode::UNAUTHORIZED);
+        // Lists and the database contain only metadata and the digest, never the secret.
+        let stored: String = sqlx::query_scalar("select token_hash from ckw_api_keys where id=$1")
+            .bind(parse_uuid(key["id"].as_str().unwrap()).unwrap()).fetch_one(&state.db).await.unwrap();
+        assert_eq!(stored, token_key(token));
+        assert_ne!(stored, token);
+        // Explicit body limits must allow uploads above Axum's 2 MiB default.
+        let mut large = b"--large\r\nContent-Disposition: form-data; name=\"files\"; filename=\"large.csv\"\r\nContent-Type: text/csv\r\n\r\n".to_vec();
+        large.extend(vec![b'a'; 2 * 1024 * 1024 + 1]);
+        large.extend_from_slice(b"\r\n--large--\r\n");
+        assert_eq!(key_request(&app, "POST", &format!("{base}/uploads/consumption"), token, "multipart/form-data; boundary=large", large).await.status(), StatusCode::OK);
+        engine_task.abort();
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn project_keys_are_filtered_expire_and_revoke_without_browser_fallback() {
+        let root = std::env::temp_dir().join(format!("communi-key-scope-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        let owner = upsert_user(&state.db, &crate::AuthUser { sub: "scoped-owner".into(), email: None }).await.unwrap();
+        let actor = Actor::Registered { user_id: owner };
+        let first = create_project_for_actor(&state, &actor, "First", "Sursee", default_config()).await.unwrap();
+        let second = create_project_for_actor(&state, &actor, "Second", "Sursee", default_config()).await.unwrap();
+        let project_id = parse_uuid(&first.project_id).unwrap();
+        let key = test_key(&state, owner, &["read", "write", "delete"], Some(project_id)).await;
+        let token = key["token"].as_str().unwrap();
+        let key_id = parse_uuid(key["id"].as_str().unwrap()).unwrap();
+        let app = router(state.clone());
+        let response = key_request(&app, "GET", "/v1/ckw/projects", token, "application/json", vec![]).await;
+        assert_eq!(response.headers().get(CACHE_CONTROL).unwrap(), "private, no-store");
+        let projects = response_json(response).await;
+        assert_eq!(projects.as_array().unwrap().len(), 1);
+        assert_eq!(projects[0]["project_id"], first.project_id);
+        assert_eq!(key_request(&app, "GET", &format!("/v1/ckw/projects/{}", second.project_id), token, "application/json", vec![]).await.status(), StatusCode::FORBIDDEN);
+        assert_eq!(key_request(&app, "POST", "/v1/ckw/projects", token, "application/json", b"{}".to_vec()).await.status(), StatusCode::FORBIDDEN);
+        sqlx::query("update ckw_api_keys set expires_at=$1 where id=$2").bind(Utc::now() - Duration::seconds(1)).bind(key_id).execute(&state.db).await.unwrap();
+        assert_eq!(key_request(&app, "GET", "/v1/ckw/projects", token, "application/json", vec![]).await.status(), StatusCode::UNAUTHORIZED);
+        sqlx::query("update ckw_api_keys set expires_at=$1, revoked_at=$2 where id=$3").bind(Utc::now() + Duration::days(1)).bind(Utc::now()).bind(key_id).execute(&state.db).await.unwrap();
+        assert_eq!(key_request(&app, "GET", "/v1/ckw/projects", token, "application/json", vec![]).await.status(), StatusCode::UNAUTHORIZED);
+        sqlx::query("update ckw_api_keys set revoked_at=null where id=$1").bind(key_id).execute(&state.db).await.unwrap();
+        assert_eq!(key_request(&app, "DELETE", &format!("/v1/ckw/projects/{}", first.project_id), token, "application/json", vec![]).await.status(), StatusCode::OK);
+        assert_eq!(key_request(&app, "GET", "/v1/ckw/projects", token, "application/json", vec![]).await.status(), StatusCode::UNAUTHORIZED);
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn api_key_issuance_rejects_foreign_projects_invalid_scopes_expiry_and_excess_keys() {
+        let root = std::env::temp_dir().join(format!("communi-key-validation-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = persistent_test_state(&root).await;
+        let owner = upsert_user(&state.db, &crate::AuthUser { sub: "key-owner".into(), email: None }).await.unwrap();
+        let other = upsert_user(&state.db, &crate::AuthUser { sub: "foreign-owner".into(), email: None }).await.unwrap();
+        let foreign = create_project_for_actor(&state, &Actor::Registered { user_id: other }, "Other", "Sursee", default_config()).await.unwrap();
+        let base = json!({"name": "Test", "scopes": ["read"], "expires_in_days": 7, "project_id": null});
+        for (field, value) in [("name", json!(" ")), ("scopes", json!([])), ("scopes", json!(["admin"])), ("expires_in_days", json!(0)), ("expires_in_days", json!(366)), ("project_id", json!(foreign.project_id))] {
+            let mut invalid = base.clone(); invalid[field] = value;
+            assert!(api_keys::issue(&state.db, owner, serde_json::from_value(invalid).unwrap()).await.is_err());
+        }
+        for _ in 0..20 { test_key(&state, owner, &["read"], None).await; }
+        assert!(api_keys::issue(&state.db, owner, serde_json::from_value(base.clone()).unwrap()).await.is_err());
+        sqlx::query("update ckw_api_keys set revoked_at=$1 where id=(select id from ckw_api_keys limit 1)").bind(Utc::now()).execute(&state.db).await.unwrap();
+        assert!(api_keys::issue(&state.db, owner, serde_json::from_value(base).unwrap()).await.is_ok());
+        let response = router(state.clone()).oneshot(axum::http::Request::builder().uri("/v1/ckw/api-keys").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        state.db.close().await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     async fn persistent_test_state(root: &std::path::Path) -> CkwState {
         let db = sqlx::sqlite::SqlitePoolOptions::new().max_connections(1)
@@ -2350,11 +2599,11 @@ mod tests {
         let root = std::env::temp_dir().join(format!("communi-session-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         let state = persistent_test_state(&root).await;
-        let response = create_guest_session(State(state.clone()), HeaderMap::new()).await.unwrap();
+        let response = create_guest_session(State(state.clone()), AccessHeaders::default()).await.unwrap();
         let cookie = response.headers().get(SET_COOKIE).unwrap().to_str().unwrap().split(';').next().unwrap().to_owned();
         let body: Value = serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
         assert_eq!(body["resumed"], false);
-        let mut headers = HeaderMap::new();
+        let mut headers = AccessHeaders::default();
         headers.insert(COOKIE, cookie.parse().unwrap());
         let response = create_guest_session(State(state.clone()), headers.clone()).await.unwrap();
         assert!(response.headers().get(SET_COOKIE).is_none());

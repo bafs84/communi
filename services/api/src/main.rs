@@ -35,6 +35,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 mod ckw;
+mod api_keys;
 mod observability;
 mod storage;
 
@@ -392,6 +393,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .merge(ckw::router(ckw_state))
         .layer(TraceLayer::new_for_http())
         .layer(RequestBodyLimitLayer::new(body_limit))
+        .layer(axum::extract::DefaultBodyLimit::max(body_limit))
         .layer(cors)
         .layer(axum::middleware::from_fn(observability::track_http));
 

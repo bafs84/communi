@@ -1,4 +1,5 @@
 import { reportError } from "./observability";
+import { ApiKeysPanel } from "./ApiKeysPanel";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   endGuestSession,
@@ -21,6 +22,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
   const [ended, setEnded] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState(false);
 
   useEffect(() => {
     const changed = (event: Event) => setAccess((event as CustomEvent<AccessContext>).detail);
@@ -66,10 +68,14 @@ export function AccessGate({ children }: { children: ReactNode }) {
         ) : (
           <>
             <span><strong>Gespeicherter Arbeitsbereich</strong>{access.email ? ` · ${access.email}` : ""}</span>
-            <button type="button" className="bannerSecondary" onClick={logout}>Abmelden</button>
+            <div>
+              <button type="button" className="bannerSecondary" aria-expanded={showApiKeys} onClick={() => setShowApiKeys((current) => !current)}>API-Zugänge</button>
+              <button type="button" className="bannerSecondary" onClick={logout}>Abmelden</button>
+            </div>
           </>
         )}
       </div>
+      {access.mode === "registered" && showApiKeys && <ApiKeysPanel />}
       {children}
     </>
   );
