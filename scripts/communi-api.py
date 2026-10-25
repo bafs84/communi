@@ -62,7 +62,11 @@ def multipart(paths: list[Path]) -> tuple[bytes, str]:
 
 
 def request(base: str, token: str, method: str, path: str, *, data=None, content_type=None, output: Path | None = None):
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json, application/octet-stream"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json, application/octet-stream",
+        "User-Agent": "Communi API client/1.0",
+    }
     if data is not None and not isinstance(data, bytes):
         data = json.dumps(data, allow_nan=False).encode("utf-8")
         content_type = "application/json"
@@ -88,6 +92,8 @@ def request(base: str, token: str, method: str, path: str, *, data=None, content
                 print(json.dumps(json.load(response), ensure_ascii=False, indent=2))
     except HTTPError as error:
         hints = {401: "key missing, expired or revoked", 403: "key lacks the required scope or project access", 404: "resource or operation not found", 413: "upload too large", 507: "storage quota exceeded"}
+        if error.code == 403 and "application/json" not in error.headers.get("Content-Type", ""):
+            hints[403] = "request rejected by the gateway before reaching the API"
         error.close()
         raise ValueError(f"HTTP {error.code}: {hints.get(error.code, 'API request failed')}") from None
     except URLError:
