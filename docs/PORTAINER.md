@@ -74,6 +74,14 @@ Save the application and API settings. For local development add the equivalent
 callback/logout URLs and origins on `http://localhost:8080` and
 `http://ckw.localhost:8080`.
 
+If registration returns `Client ... is not authorized to access resource server
+"https://api.communi.ch"`, open **Applications → APIs → Communi API → Application
+Access** and authorize the SPA matching `PUBLIC_AUTH0_CLIENT_ID` for
+**User-Delegated Access**. This is separate from enabling the login/database
+connection. Retain per-app authorization; no machine-to-machine grant or custom
+API scopes are needed. The CKW page reports this configuration failure without
+retaining the OAuth error or transaction state in the address bar.
+
 After deployment, visit `https://communi.ch/raum/ckw/`, register a test account,
 create and save a synthetic project, log out, log in again and reopen it. This
 checks the real Auth0 integration; the repository's isolated tests use a test

@@ -93,11 +93,22 @@ async function claimGuestSession(csrfToken: string) {
 
 async function initialize(): Promise<AccessContext> {
   authClient = await createAuthClient();
-  const callback = new URLSearchParams(window.location.search).has("code")
-    && new URLSearchParams(window.location.search).has("state");
+  const callbackParameters = new URLSearchParams(window.location.search);
+  const callback = (callbackParameters.has("code") || callbackParameters.has("error"))
+    && callbackParameters.has("state");
   if (callback && authClient) {
-    await authClient.handleRedirectCallback();
-    window.history.replaceState({}, document.title, window.location.pathname);
+    try {
+      await authClient.handleRedirectCallback();
+    } catch {
+      const missingApiGrant = callbackParameters.get("error") === "invalid_request"
+        && (callbackParameters.get("error_description") ?? "").includes("not authorized to access resource server");
+      throw new Error(missingApiGrant
+        ? "Die Anmeldung ist für diesen Arbeitsbereich noch nicht freigeschaltet. Bitte kontaktiere den Betreiber."
+        : "Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut.");
+    } finally {
+      // OAuth error descriptions and transaction state must not remain in URLs.
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+    }
   }
 
   if (authClient && await authClient.isAuthenticated()) {
